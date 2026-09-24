@@ -469,12 +469,28 @@ fun TodayScreen(
                     }
                 }
             } else {
-                items(todayLogs, key = { it.id }) { log ->
-                    LogCard(
-                        log = log,
-                        onClick = null,
-                        onDelete = { onDeleteLog(log) }
-                    )
+                items(todayLogs.size, key = { todayLogs[it].id }) { index ->
+                    val log = todayLogs[index]
+                    // Add staggered animation to list items
+                    var isVisible by remember { mutableStateOf(false) }
+                    LaunchedEffect(log.id) {
+                        kotlinx.coroutines.delay(index * 100L)
+                        isVisible = true
+                    }
+
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = slideInVertically(
+                            initialOffsetY = { 50 },
+                            animationSpec = spring(stiffness = Spring.StiffnessLow)
+                        ) + fadeIn(tween(400))
+                    ) {
+                        LogCard(
+                            log = log,
+                            onClick = null,
+                            onDelete = { onDeleteLog(log) }
+                        )
+                    }
                 }
             }
         }
@@ -647,6 +663,21 @@ data class DrugCurveData(
 fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
     var touchX by remember { mutableStateOf<Float?>(null) }
 
+    // Animation states
+    val drawProgress = remember { Animatable(0f) }
+
+    LaunchedEffect(logs) {
+        drawProgress.snapTo(0f)
+        if (logs.isNotEmpty()) {
+            drawProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+            )
+        } else {
+            drawProgress.snapTo(1f)
+        }
+    }
+
     Column(modifier = modifier) {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val labelTextSize = with(density) { 9.sp.toPx() }
@@ -747,6 +778,20 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         return@Canvas
                     }
 
+                    // Baseline dotted line
+                    val baselinePath = Path().apply {
+                        moveTo(0f, chartBottom)
+                        lineTo(w, chartBottom)
+                    }
+                    drawPath(
+                        path = baselinePath,
+                        color = Color.White.copy(alpha = 0.25f),
+                        style = Stroke(
+                            width = 2f,
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                        )
+                    )
+
                     val earliestLog = logs.minByOrNull { it.time }!!
                     val latestLog = logs.maxByOrNull { it.time }!!
                     val maxHalfLife = logs.maxOfOrNull { it.halfLife } ?: 3.0f
@@ -820,8 +865,6 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     if (maxAbsorptionFactor <= 0f) maxAbsorptionFactor = 1f
 
                     val concs = FloatArray(numPoints + 1)
-                    val drugMaxDose = medLogs.maxOfOrNull { it.parsedDose }?.coerceAtLeast(100f) ?: 100f
-                    val suggestedMax = drugMaxDose * 1.08f
 
                     for (i in 0..numPoints) {
                         val tHours = (i.toFloat() / numPoints) * evalHours
@@ -841,14 +884,25 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         concs[i] = cSum
                     }
 
+                    // Dynamic scaling based on actual max concentration, not just max dose
+                    val actualMaxConc = concs.maxOrNull() ?: 100f
+                    val drugMaxDose = medLogs.maxOfOrNull { it.parsedDose }?.coerceAtLeast(100f) ?: 100f
+                    val suggestedMax = actualMaxConc.coerceAtLeast(drugMaxDose * 0.5f) * 1.2f // Add 20% headroom
+
                     val path = Path()
                     var touchY: Float? = null
                     var touchVal = 0f
 
-                    for (i in 0..numPoints) {
+                    // Apply drawing progress animation limit
+                    val pointsToDraw = (numPoints * drawProgress.value).toInt().coerceIn(0, numPoints)
+
+                    for (i in 0..pointsToDraw) {
+                        val tHours = (i.toFloat() / numPoints) * evalHours
+                        val absoluteTime = timelineStart + (tHours * 60 * 60 * 1000).toLong()
+
                         val c = concs[i]
                         val x = (i.toFloat() / numPoints) * w
-                        val y = chartBottom - ((c / suggestedMax) * (chartBottom - 10.dp.toPx())).coerceIn(0f, chartBottom)
+                        val y = chartBottom - ((c / suggestedMax) * (chartBottom - 20.dp.toPx())).coerceIn(0f, chartBottom)
 
                         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
 
@@ -858,29 +912,51 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         }
                     }
 
-                    val fillPath = Path().apply {
-                        addPath(path)
-                        lineTo(w, chartBottom)
-                        lineTo(0f, chartBottom)
-                        close()
-                    }
-                    drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                drugColor.copy(alpha = 0.40f),
-                                drugColor.copy(alpha = 0.02f)
-                            ),
-                            startY = 0f,
-                            endY = chartBottom
-                        )
-                    )
+                    if (pointsToDraw > 0) {
+                        val fillPath = Path().apply {
+                            addPath(path)
+                            val lastX = (pointsToDraw.toFloat() / numPoints) * w
+                            lineTo(lastX, chartBottom)
+                            lineTo(0f, chartBottom)
+                            close()
+                        }
 
-                    drawPath(
-                        path = path,
-                        color = drugColor,
-                        style = Stroke(width = 5.0f)
-                    )
+                        // Animated alpha for area fill
+                        val fillAlphaFactor = drawProgress.value * drawProgress.value
+
+                        drawPath(
+                            path = fillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    drugColor.copy(alpha = 0.45f * fillAlphaFactor),
+                                    drugColor.copy(alpha = 0.02f * fillAlphaFactor)
+                                ),
+                                startY = 0f,
+                                endY = chartBottom
+                            )
+                        )
+
+                        // Draw path shadow (glow)
+                        drawPath(
+                            path = path,
+                            color = drugColor.copy(alpha = 0.3f),
+                            style = Stroke(
+                                width = 12.0f,
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                join = androidx.compose.ui.graphics.StrokeJoin.Round
+                            )
+                        )
+
+                        drawPath(
+                            path = path,
+                            color = drugColor,
+                            style = Stroke(
+                                width = 6.0f,
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                join = androidx.compose.ui.graphics.StrokeJoin.Round
+                            )
+                        )
+                    }
 
                     curvesList.add(
                         DrugCurveData(
@@ -895,7 +971,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                 }
 
                 // Interactive touch indicator & Multi-drug Tooltip
-                if (curTouchX != null && curvesList.isNotEmpty()) {
+                if (curTouchX != null && curvesList.isNotEmpty() && drawProgress.value == 1f) {
                     drawLine(
                         color = Color(0xFF93C5FD).copy(alpha = 0.6f),
                         start = Offset(curTouchX, 0f),
@@ -941,53 +1017,93 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     var maxLineWidth = timePaint.measureText(timeStr)
 
                     val lineStrings = activeCurves.map { curve ->
-                        val rem = Math.round(curve.touchVal)
+                        val rem = String.format(Locale.getDefault(), "%.1f", curve.touchVal)
                         val perc = if (curve.maxDose > 0) Math.round((curve.touchVal / curve.maxDose) * 100).coerceIn(0, 100) else 0
-                        val s = "${curve.drugName} 有效血药浓度: $rem mg ($perc%)"
+                        val s = "${curve.drugName}: $rem mg ($perc%)"
                         val wStr = detailPaint.measureText(s) + 16.dp.toPx()
                         if (wStr > maxLineWidth) maxLineWidth = wStr
                         Pair(curve, s)
                     }
 
-                    val tooltipWidth = maxLineWidth + 24.dp.toPx()
-                    val lineHeight = 18.dp.toPx()
-                    val tooltipHeight = 26.dp.toPx() + (lineStrings.size * lineHeight)
+                    val tooltipWidth = maxLineWidth + 32.dp.toPx()
+                    val lineHeight = 20.dp.toPx()
+                    val tooltipHeight = 32.dp.toPx() + (lineStrings.size * lineHeight)
 
-                    var tooltipX = curTouchX - tooltipWidth / 2f
+                    // Modern glassmorphism tooltip logic
+                    var tooltipX = curTouchX + 12.dp.toPx()
+                    // Flip tooltip to the left if it's too close to the right edge
+                    if (tooltipX + tooltipWidth > w - 8.dp.toPx()) {
+                        tooltipX = curTouchX - tooltipWidth - 12.dp.toPx()
+                    }
                     if (tooltipX < 8.dp.toPx()) tooltipX = 8.dp.toPx()
-                    if (tooltipX + tooltipWidth > w - 8.dp.toPx()) tooltipX = w - tooltipWidth - 8.dp.toPx()
 
-                    val rect = RectF(tooltipX, 8.dp.toPx(), tooltipX + tooltipWidth, 8.dp.toPx() + tooltipHeight)
-                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 16f, 16f, tooltipBgPaint)
-                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 16f, 16f, tooltipBorderPaint)
+                    // Try to place the tooltip near the highest active touch point,
+                    // but clamp it so it doesn't go off-screen
+                    val maxTouchY = activeCurves.minOfOrNull { it.touchY ?: 0f } ?: (h / 2f)
+                    var tooltipY = maxTouchY - (tooltipHeight / 2f)
+                    tooltipY = tooltipY.coerceIn(8.dp.toPx(), chartBottom - tooltipHeight - 8.dp.toPx())
 
+                    val rect = RectF(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + tooltipHeight)
+
+                    // Glass background
+                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, Paint().apply {
+                        color = android.graphics.Color.parseColor("#E60B0F19")
+                        setShadowLayer(16f, 0f, 8f, android.graphics.Color.parseColor("#80000000"))
+                        isAntiAlias = true
+                    })
+
+                    // Subtle border
+                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, Paint().apply {
+                        color = android.graphics.Color.parseColor("#33FFFFFF")
+                        style = Paint.Style.STROKE
+                        strokeWidth = 2f
+                        isAntiAlias = true
+                    })
+
+                    // Draw Time header
                     drawContext.canvas.nativeCanvas.drawText(
                         timeStr,
-                        tooltipX + 12.dp.toPx(),
-                        24.dp.toPx(),
+                        tooltipX + 16.dp.toPx(),
+                        tooltipY + 24.dp.toPx(),
                         timePaint
                     )
 
+                    // Draw separator line
+                    drawContext.canvas.nativeCanvas.drawLine(
+                        tooltipX + 16.dp.toPx(),
+                        tooltipY + 32.dp.toPx(),
+                        tooltipX + tooltipWidth - 16.dp.toPx(),
+                        tooltipY + 32.dp.toPx(),
+                        Paint().apply {
+                            color = android.graphics.Color.parseColor("#33FFFFFF")
+                            strokeWidth = 2f
+                            isAntiAlias = true
+                        }
+                    )
+
+                    // Draw drug entries
                     lineStrings.forEachIndexed { idx, pair ->
                         val (curve, str) = pair
-                        val yOffset = 40.dp.toPx() + (idx * lineHeight)
+                        val yOffset = tooltipY + 48.dp.toPx() + (idx * lineHeight)
 
                         sqPaint.color = android.graphics.Color.rgb(
                             (curve.color.red * 255).toInt(),
                             (curve.color.green * 255).toInt(),
                             (curve.color.blue * 255).toInt()
                         )
-                        val sqX = tooltipX + 12.dp.toPx()
+                        val sqX = tooltipX + 16.dp.toPx()
                         val sqY = yOffset - 9.dp.toPx()
                         val sqSize = 8.dp.toPx()
+
+                        // Rounded color indicator
                         drawContext.canvas.nativeCanvas.drawRoundRect(
                             RectF(sqX, sqY, sqX + sqSize, sqY + sqSize),
-                            3f, 3f, sqPaint
+                            sqSize/2, sqSize/2, sqPaint
                         )
 
                         drawContext.canvas.nativeCanvas.drawText(
                             str,
-                            sqX + sqSize + 6.dp.toPx(),
+                            sqX + sqSize + 8.dp.toPx(),
                             yOffset,
                             detailPaint
                         )
@@ -1315,8 +1431,16 @@ fun HistoryScreen(
     onDateClick: (String) -> Unit,
     onAddLogClick: () -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        val grouped = logs.groupBy {
+        val filteredLogs = if (searchQuery.isBlank()) {
+            logs
+        } else {
+            logs.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        }
+
+        val grouped = filteredLogs.groupBy {
             SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it.time))
         }.toSortedMap(reverseOrder())
 
@@ -1331,6 +1455,36 @@ fun HistoryScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     color = AppColors.TextPrimary,
                     fontWeight = FontWeight.Black
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("搜索药品名称...", color = AppColors.TextSecondary) },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Search, contentDescription = "Search", tint = AppColors.TextSecondary)
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            Icon(
+                                Icons.Filled.Clear,
+                                contentDescription = "Clear",
+                                tint = AppColors.TextSecondary,
+                                modifier = Modifier.clickable { searchQuery = "" }
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        textColor = AppColors.TextPrimary,
+                        containerColor = AppColors.SurfaceVariant.copy(alpha = 0.5f),
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = AppColors.Primary
+                    ),
+                    shape = RoundedCornerShape(16.dp)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -1505,12 +1659,28 @@ fun DetailScreen(
                     }
                 }
             } else {
-                items(dayLogs, key = { it.id }) { log ->
-                    LogCard(
-                        log = log,
-                        onClick = { editingLog = log },
-                        onDelete = { onDeleteLog(log) }
-                    )
+                items(dayLogs.size, key = { dayLogs[it].id }) { index ->
+                    val log = dayLogs[index]
+                    // Add staggered animation to list items
+                    var isVisible by remember { mutableStateOf(false) }
+                    LaunchedEffect(log.id) {
+                        kotlinx.coroutines.delay(index * 100L)
+                        isVisible = true
+                    }
+
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = slideInVertically(
+                            initialOffsetY = { 50 },
+                            animationSpec = spring(stiffness = Spring.StiffnessLow)
+                        ) + fadeIn(tween(400))
+                    ) {
+                        LogCard(
+                            log = log,
+                            onClick = { editingLog = log },
+                            onDelete = { onDeleteLog(log) }
+                        )
+                    }
                 }
             }
         }
@@ -1542,6 +1712,29 @@ fun StatsDetailSheet(
     val drugGroups = logs.groupBy { it.name }
     val distinctDrugCount = drugGroups.size
     val totalMg = logs.sumOf { it.parsedDose.toDouble() }.toFloat()
+
+    // Animating summary stats
+    var showStats by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        showStats = true
+    }
+
+    val animTotalDoses by animateIntAsState(
+        targetValue = if (showStats) totalDoses else 0,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
+    val animTotalMg by animateFloatAsState(
+        targetValue = if (showStats) totalMg else 0f,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
+    val animDistinctDrugCount by animateIntAsState(
+        targetValue = if (showStats) distinctDrugCount else 0,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
+    val animStreak by animateIntAsState(
+        targetValue = if (showStats) streak else 0,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
 
     // Stomach breakdown
     val fullCount = logs.count { it.stomach == "full" }
@@ -1645,19 +1838,19 @@ fun StatsDetailSheet(
                                 horizontalArrangement = Arrangement.SpaceAround
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("$totalDoses", color = Color(0xFF2563EB), fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                    Text("$animTotalDoses", color = Color(0xFF2563EB), fontSize = 20.sp, fontWeight = FontWeight.Black)
                                     Text("累计用药(次)", color = AppColors.TextSecondary, fontSize = 11.sp)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("${totalMg.toInt()} mg", color = Color(0xFF059669), fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                    Text("${animTotalMg.toInt()} mg", color = Color(0xFF059669), fontSize = 20.sp, fontWeight = FontWeight.Black)
                                     Text("总摄入量", color = AppColors.TextSecondary, fontSize = 11.sp)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("$distinctDrugCount", color = Color(0xFF7C3AED), fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                    Text("$animDistinctDrugCount", color = Color(0xFF7C3AED), fontSize = 20.sp, fontWeight = FontWeight.Black)
                                     Text("记录药种", color = AppColors.TextSecondary, fontSize = 11.sp)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("$streak 天", color = Color(0xFFD97706), fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                    Text("$animStreak 天", color = Color(0xFFD97706), fontSize = 20.sp, fontWeight = FontWeight.Black)
                                     Text("连续打卡", color = AppColors.TextSecondary, fontSize = 11.sp)
                                 }
                             }
@@ -1957,8 +2150,16 @@ fun ProfileScreen(
                                 Text("按时记录，守护健康每一天", color = AppColors.TextSecondary, fontSize = 12.sp)
                             }
                         }
+                        var showStats by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            showStats = true
+                        }
+                        val animStreak by animateIntAsState(
+                            targetValue = if (showStats) streak else 0,
+                            animationSpec = tween(800, easing = FastOutSlowInEasing)
+                        )
                         Text(
-                            "$streak 天",
+                            "$animStreak 天",
                             color = Color(0xFFD97706),
                             fontWeight = FontWeight.Black,
                             fontSize = 22.sp
@@ -1976,7 +2177,15 @@ fun ProfileScreen(
                     ) {
                         Text("📅 近7天服药考勤", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         val completedCount = weekAdherence.count { it.second }
-                        Text("$completedCount/7 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        var showStats by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            showStats = true
+                        }
+                        val animCompletedCount by animateIntAsState(
+                            targetValue = if (showStats) completedCount else 0,
+                            animationSpec = tween(800, easing = FastOutSlowInEasing)
+                        )
+                        Text("$animCompletedCount/7 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -2041,17 +2250,30 @@ fun ProfileScreen(
                     }
                     Spacer(modifier = Modifier.height(14.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                        var showStats by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            showStats = true
+                        }
+
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${logs.size}", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                            val animLogsSize by animateIntAsState(
+                                targetValue = if (showStats) logs.size else 0,
+                                animationSpec = tween(800, easing = FastOutSlowInEasing)
+                            )
+                            Text("$animLogsSize", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                             Text("总服药记录", color = AppColors.TextSecondary, fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             val medTypes = logs.map { it.name }.distinct().size
-                            Text("$medTypes", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                            val animMedTypes by animateIntAsState(
+                                targetValue = if (showStats) medTypes else 0,
+                                animationSpec = tween(800, easing = FastOutSlowInEasing)
+                            )
+                            Text("$animMedTypes", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                             Text("常备药品", color = AppColors.TextSecondary, fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val avgDoses = if (streak > 0) String.format("%.1f", logs.size.toFloat() / streak.coerceAtLeast(1)) else "0"
+                            val avgDoses = if (streak > 0) String.format(Locale.getDefault(), "%.1f", logs.size.toFloat() / streak.coerceAtLeast(1)) else "0"
                             Text(avgDoses, color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                             Text("日均服药", color = AppColors.TextSecondary, fontSize = 12.sp)
                         }

@@ -238,14 +238,19 @@ fun PillTrackApp() {
                         val tabOrder = mapOf("today" to 0, "history" to 1, "profile" to 2)
                         val fromIndex = tabOrder[initialState] ?: 0
                         val toIndex = tabOrder[targetState] ?: 0
-                        val slideSpec = tween<androidx.compose.ui.unit.IntOffset>(350, easing = FastOutSlowInEasing)
-                        val fadeSpec = tween<Float>(350, easing = LinearEasing)
+                        // Using a fluid spring animation for tab switches instead of basic tween
+                        val slideSpec = spring<androidx.compose.ui.unit.IntOffset>(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                        val fadeSpec = tween<Float>(300, easing = LinearEasing)
+
                         if (toIndex > fromIndex) {
                             (slideInHorizontally(animationSpec = slideSpec) { it } + fadeIn(fadeSpec)) with
-                                (slideOutHorizontally(animationSpec = slideSpec) { -it } + fadeOut(fadeSpec))
+                                (slideOutHorizontally(animationSpec = slideSpec) { -it / 2 } + fadeOut(fadeSpec))
                         } else {
                             (slideInHorizontally(animationSpec = slideSpec) { -it } + fadeIn(fadeSpec)) with
-                                (slideOutHorizontally(animationSpec = slideSpec) { it } + fadeOut(fadeSpec))
+                                (slideOutHorizontally(animationSpec = slideSpec) { it / 2 } + fadeOut(fadeSpec))
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -408,8 +413,11 @@ fun PillTrackApp() {
                 // Bottom Navigation Bar with Spring Animation & Bright Frosted Glass
                 AnimatedVisibility(
                     visible = !isOverlayActive,
-                    enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(tween(300)),
-                    exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(tween(300)),
+                    enter = slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioLowBouncy)
+                    ) + fadeIn(tween(300)),
+                    exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(250)) + fadeOut(tween(250)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 24.dp)
