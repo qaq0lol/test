@@ -36,10 +36,21 @@ data class UserProfile(
     val themeMode: String = "system"
 )
 
+data class InventoryItem(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val name: String,
+    val dose: String,
+    val stomach: String = "empty",
+    val quantity: Int,
+    val totalCapacity: Int
+)
+
 object LocalStorage {
     private const val PREFS_NAME = "pilltrack_prefs"
     private const val KEY_LOGS = "pilltrack_logs"
     private const val KEY_PROFILE = "pilltrack_profile"
+    private const val KEY_CUSTOM_DRUGS = "pilltrack_custom_drugs"
+    private const val KEY_INVENTORY = "pilltrack_inventory"
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -98,6 +109,66 @@ object LocalStorage {
             Gson().fromJson(json, UserProfile::class.java) ?: UserProfile()
         } catch (e: Exception) {
             UserProfile()
+        }
+    }
+
+    fun saveCustomDrugs(context: Context, drugs: List<Triple<String, String, String>>) {
+        try {
+            val json = Gson().toJson(drugs)
+            getPrefs(context).edit().putString(KEY_CUSTOM_DRUGS, json).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun loadCustomDrugs(context: Context): List<Triple<String, String, String>> {
+        val json = getPrefs(context).getString(KEY_CUSTOM_DRUGS, null)
+        if (json.isNullOrEmpty()) {
+            return listOf(
+                Triple("布洛芬", "400", "empty"),
+                Triple("对乙酰氨基酚", "500", "full"),
+                Triple("阿莫西林", "500", "full"),
+                Triple("维生素C", "100", "full"),
+                Triple("氯雷他定", "10", "empty"),
+                Triple("阿司匹林", "100", "full")
+            )
+        }
+        return try {
+            val type = object : TypeToken<List<Triple<String, String, String>>>() {}.type
+            Gson().fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveInventory(context: Context, inventory: List<InventoryItem>) {
+        try {
+            val json = Gson().toJson(inventory)
+            getPrefs(context).edit().putString(KEY_INVENTORY, json).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun loadInventory(context: Context): List<InventoryItem> {
+        val json = getPrefs(context).getString(KEY_INVENTORY, null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<InventoryItem>>() {}.type
+            Gson().fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun deductInventory(context: Context, medName: String, dose: String) {
+        val inventory = loadInventory(context).toMutableList()
+        val itemIndex = inventory.indexOfFirst { it.name == medName && it.dose == dose }
+        if (itemIndex != -1) {
+            val item = inventory[itemIndex]
+            if (item.quantity > 0) {
+                inventory[itemIndex] = item.copy(quantity = item.quantity - 1)
+                saveInventory(context, inventory)
+            }
         }
     }
 

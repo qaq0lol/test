@@ -85,15 +85,6 @@ val COLOR_OPTIONS = listOf(
     Pair("#EF4444", "珊瑚红")
 )
 
-val COMMON_DRUGS = listOf(
-    Triple("布洛芬", "400", "empty"),
-    Triple("对乙酰氨基酚", "500", "full"),
-    Triple("阿莫西林", "500", "full"),
-    Triple("维生素C", "100", "full"),
-    Triple("氯雷他定", "10", "empty"),
-    Triple("阿司匹林", "100", "full")
-)
-
 @Composable
 fun BackgroundGlow(
     customBitmap: Bitmap? = null,
@@ -2226,6 +2217,157 @@ fun ProfileScreen(
             }
 
             item {
+                val context = LocalContext.current
+                var inventory by remember { mutableStateOf(LocalStorage.loadInventory(context)) }
+                var showAddInventoryDialog by remember { mutableStateOf(false) }
+
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .background(Color(0xFFE0E7FF), RoundedCornerShape(14.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📦", fontSize = 22.sp)
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text("我的药箱", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("库存管理与提醒", color = AppColors.TextSecondary, fontSize = 12.sp)
+                            }
+                        }
+                        IconButton(onClick = { showAddInventoryDialog = true }) {
+                            Icon(Icons.Filled.Add, contentDescription = "Add Inventory", tint = AppColors.Primary)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (inventory.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(60.dp)
+                                .background(AppColors.SurfaceVariant, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("药箱空空如也，点击右上角添加", color = AppColors.TextTertiary, fontSize = 12.sp)
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            inventory.forEach { item ->
+                                val percent = if (item.totalCapacity > 0) item.quantity.toFloat() / item.totalCapacity else 0f
+                                val isLow = item.quantity <= (item.totalCapacity * 0.2f).coerceAtLeast(5f)
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = AppColors.Background,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isLow) Color(0xFFEF4444).copy(alpha = 0.5f) else AppColors.Border)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(item.name, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                if (isLow) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = Color(0xFFFEE2E2)
+                                                    ) {
+                                                        Text("余量不足", color = Color(0xFFEF4444), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                                                    }
+                                                }
+                                            }
+                                            Text("${item.dose}mg", color = AppColors.TextSecondary, fontSize = 11.sp)
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text("剩余 ${item.quantity} / ${item.totalCapacity}", color = if (isLow) Color(0xFFEF4444) else AppColors.Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Box(modifier = Modifier.width(80.dp).height(4.dp).background(AppColors.SurfaceVariant, RoundedCornerShape(2.dp))) {
+                                                Box(modifier = Modifier.fillMaxWidth(percent).height(4.dp).background(if (isLow) Color(0xFFEF4444) else AppColors.Primary, RoundedCornerShape(2.dp)))
+                                            }
+                                        }
+                                        Icon(
+                                            Icons.Filled.Delete,
+                                            contentDescription = "Delete",
+                                            tint = AppColors.TextTertiary,
+                                            modifier = Modifier.size(16.dp).clickable {
+                                                val newInv = inventory.filter { it.id != item.id }
+                                                inventory = newInv
+                                                LocalStorage.saveInventory(context, newInv)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (showAddInventoryDialog) {
+                    var newInvName by remember { mutableStateOf("") }
+                    var newInvDose by remember { mutableStateOf("") }
+                    var newInvQuantity by remember { mutableStateOf("") }
+
+                    AlertDialog(
+                        onDismissRequest = { showAddInventoryDialog = false },
+                        containerColor = AppColors.Card,
+                        title = { Text("添加药品库存", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = newInvName,
+                                    onValueChange = { newInvName = it },
+                                    label = { Text("药物名称", color = AppColors.TextSecondary) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = newInvDose,
+                                    onValueChange = { newInvDose = it },
+                                    label = { Text("单次剂量 (mg)", color = AppColors.TextSecondary) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = newInvQuantity,
+                                    onValueChange = { newInvQuantity = it },
+                                    label = { Text("当前总数量", color = AppColors.TextSecondary) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                val q = newInvQuantity.toIntOrNull() ?: 0
+                                if (newInvName.isNotBlank() && q > 0) {
+                                    val newItem = InventoryItem(name = newInvName, dose = newInvDose, quantity = q, totalCapacity = q)
+                                    val newInv = inventory + newItem
+                                    inventory = newInv
+                                    LocalStorage.saveInventory(context, newInv)
+                                    showAddInventoryDialog = false
+                                }
+                            }) { Text("保存") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showAddInventoryDialog = false }) { Text("取消") }
+                        }
+                    )
+                }
+            }
+
+            item {
                 GlassCard(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2459,7 +2601,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.20-beta · Build 21",
+                        "版本号: v1.19 · Build 20",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )
@@ -2550,6 +2692,9 @@ fun AddLogSheet(
     val dateDisplay = remember(recordTimeMillis) { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(recordTimeMillis)) }
     val timeDisplay = remember(recordTimeMillis) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(recordTimeMillis)) }
 
+    var customDrugs by remember { mutableStateOf(LocalStorage.loadCustomDrugs(context)) }
+    var isManagingDrugs by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2569,30 +2714,86 @@ fun AddLogSheet(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Quick common drug chips
-        Text("快捷选择常用药", color = AppColors.TextSecondary, fontSize = 12.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("快捷选择常用药", color = AppColors.TextSecondary, fontSize = 12.sp)
+            Text(
+                if (isManagingDrugs) "完成管理" else "管理",
+                color = Color(0xFF2563EB),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { isManagingDrugs = !isManagingDrugs }
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(COMMON_DRUGS, key = { it.first }) { (dName, dDose, dStomach) ->
+            items(customDrugs) { (dName, dDose, dStomach) ->
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFEFF6FF),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
                     modifier = Modifier.clickable {
-                        medName = dName
-                        doseStr = dDose
-                        stomachState = dStomach
+                        if (!isManagingDrugs) {
+                            medName = dName
+                            doseStr = dDose
+                            stomachState = dStomach
+                        } else {
+                            val newDrugs = customDrugs.filter { it.first != dName || it.second != dDose }
+                            customDrugs = newDrugs
+                            LocalStorage.saveCustomDrugs(context, newDrugs)
+                        }
                     }
                 ) {
-                    Text(
-                        "$dName ${dDose}mg",
-                        color = Color(0xFF1D4ED8),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                        Text(
+                            "$dName ${dDose}mg",
+                            color = Color(0xFF1D4ED8),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (isManagingDrugs) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Filled.Close, contentDescription = "Delete", tint = Color(0xFFEF4444), modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
+            }
+            if (isManagingDrugs) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF1F5F9),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.clickable {
+                            if (medName.isNotBlank() && doseStr.isNotBlank()) {
+                                // Prevent exact duplicates from crashing Compose by ensuring it's not already in list
+                                val isDuplicate = customDrugs.any { it.first == medName && it.second == doseStr }
+                                if (!isDuplicate) {
+                                    val newDrugs = customDrugs + Triple(medName, doseStr, stomachState)
+                                    customDrugs = newDrugs
+                                    LocalStorage.saveCustomDrugs(context, newDrugs)
+                                    medName = ""
+                                    doseStr = ""
+                                } else {
+                                    android.widget.Toast.makeText(context, "该药品已存在", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                android.widget.Toast.makeText(context, "请先在下方输入框填写药物名称和剂量", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                            Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color(0xFF64748B), modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("添加当前输入", color = Color(0xFF64748B), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
                 }
             }
         }

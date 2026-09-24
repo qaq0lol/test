@@ -604,6 +604,10 @@ fun PillTrackApp() {
                                     val newLogs = logs + newLog
                                     logs = newLogs
                                     LocalStorage.saveLogs(context, newLogs)
+
+                                    // Also deduct from inventory!
+                                    LocalStorage.deductInventory(context, name, dose)
+
                                     showAddSheet = false
                                     addSheetInitialTime = null
                                 }
@@ -798,7 +802,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    "v1.20-beta",
+                    "v1.19",
                     color = AppColors.Primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
