@@ -412,7 +412,7 @@ fun TodayScreen(
                 }
             }
 
-            item {
+            item(key = "theme_card") {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2064,6 +2064,34 @@ fun ProfileScreen(
     val streak = remember(logs) { LocalStorage.calculateStreak(logs) }
     val weekAdherence = remember(logs) { LocalStorage.getWeekAdherence(logs) }
 
+    // Hoisting animation states up so they aren't repeatedly recomposed inside LazyColumn items during scroll
+    var showStats by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        showStats = true
+    }
+
+    val animStreak by animateIntAsState(
+        targetValue = if (showStats) streak else 0,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
+
+    val completedCount = remember(weekAdherence) { weekAdherence.count { it.second } }
+    val animCompletedCount by animateIntAsState(
+        targetValue = if (showStats) completedCount else 0,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
+
+    val animLogsSize by animateIntAsState(
+        targetValue = if (showStats) logs.size else 0,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
+
+    val medTypes = remember(logs) { logs.map { it.name }.distinct().size }
+    val animMedTypes by animateIntAsState(
+        targetValue = if (showStats) medTypes else 0,
+        animationSpec = tween(800, easing = FastOutSlowInEasing)
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
@@ -2073,7 +2101,7 @@ fun ProfileScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            item {
+            item(key = "header_profile") {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -2119,7 +2147,7 @@ fun ProfileScreen(
                 }
             }
 
-            item {
+            item(key = "streak_card") {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2141,14 +2169,6 @@ fun ProfileScreen(
                                 Text("按时记录，守护健康每一天", color = AppColors.TextSecondary, fontSize = 12.sp)
                             }
                         }
-                        var showStats by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            showStats = true
-                        }
-                        val animStreak by animateIntAsState(
-                            targetValue = if (showStats) streak else 0,
-                            animationSpec = tween(800, easing = FastOutSlowInEasing)
-                        )
                         Text(
                             "$animStreak 天",
                             color = Color(0xFFD97706),
@@ -2159,7 +2179,7 @@ fun ProfileScreen(
                 }
             }
 
-            item {
+            item(key = "week_adherence_card") {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2167,15 +2187,6 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("📅 近7天服药考勤", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        val completedCount = weekAdherence.count { it.second }
-                        var showStats by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            showStats = true
-                        }
-                        val animCompletedCount by animateIntAsState(
-                            targetValue = if (showStats) completedCount else 0,
-                            animationSpec = tween(800, easing = FastOutSlowInEasing)
-                        )
                         Text("$animCompletedCount/7 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
@@ -2216,158 +2227,11 @@ fun ProfileScreen(
                 }
             }
 
-            item {
-                val context = LocalContext.current
-                var inventory by remember { mutableStateOf(LocalStorage.loadInventory(context)) }
-                var showAddInventoryDialog by remember { mutableStateOf(false) }
-
-                GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .background(Color(0xFFE0E7FF), RoundedCornerShape(14.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("📦", fontSize = 22.sp)
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
-                                Text("我的药箱", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Text("库存管理与提醒", color = AppColors.TextSecondary, fontSize = 12.sp)
-                            }
-                        }
-                        IconButton(onClick = { showAddInventoryDialog = true }) {
-                            Icon(Icons.Filled.Add, contentDescription = "Add Inventory", tint = AppColors.Primary)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    if (inventory.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(60.dp)
-                                .background(AppColors.SurfaceVariant, RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("药箱空空如也，点击右上角添加", color = AppColors.TextTertiary, fontSize = 12.sp)
-                        }
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            inventory.forEach { item ->
-                                val percent = if (item.totalCapacity > 0) item.quantity.toFloat() / item.totalCapacity else 0f
-                                val isLow = item.quantity <= (item.totalCapacity * 0.2f).coerceAtLeast(5f)
-
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = AppColors.Background,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isLow) Color(0xFFEF4444).copy(alpha = 0.5f) else AppColors.Border)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(item.name, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                if (isLow) {
-                                                    Surface(
-                                                        shape = RoundedCornerShape(4.dp),
-                                                        color = Color(0xFFFEE2E2)
-                                                    ) {
-                                                        Text("余量不足", color = Color(0xFFEF4444), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
-                                                    }
-                                                }
-                                            }
-                                            Text("${item.dose}mg", color = AppColors.TextSecondary, fontSize = 11.sp)
-                                        }
-                                        Column(horizontalAlignment = Alignment.End) {
-                                            Text("剩余 ${item.quantity} / ${item.totalCapacity}", color = if (isLow) Color(0xFFEF4444) else AppColors.Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Box(modifier = Modifier.width(80.dp).height(4.dp).background(AppColors.SurfaceVariant, RoundedCornerShape(2.dp))) {
-                                                Box(modifier = Modifier.fillMaxWidth(percent).height(4.dp).background(if (isLow) Color(0xFFEF4444) else AppColors.Primary, RoundedCornerShape(2.dp)))
-                                            }
-                                        }
-                                        Icon(
-                                            Icons.Filled.Delete,
-                                            contentDescription = "Delete",
-                                            tint = AppColors.TextTertiary,
-                                            modifier = Modifier.size(16.dp).clickable {
-                                                val newInv = inventory.filter { it.id != item.id }
-                                                inventory = newInv
-                                                LocalStorage.saveInventory(context, newInv)
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (showAddInventoryDialog) {
-                    var newInvName by remember { mutableStateOf("") }
-                    var newInvDose by remember { mutableStateOf("") }
-                    var newInvQuantity by remember { mutableStateOf("") }
-
-                    AlertDialog(
-                        onDismissRequest = { showAddInventoryDialog = false },
-                        containerColor = AppColors.Card,
-                        title = { Text("添加药品库存", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(
-                                    value = newInvName,
-                                    onValueChange = { newInvName = it },
-                                    label = { Text("药物名称", color = AppColors.TextSecondary) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                OutlinedTextField(
-                                    value = newInvDose,
-                                    onValueChange = { newInvDose = it },
-                                    label = { Text("单次剂量 (mg)", color = AppColors.TextSecondary) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                OutlinedTextField(
-                                    value = newInvQuantity,
-                                    onValueChange = { newInvQuantity = it },
-                                    label = { Text("当前总数量", color = AppColors.TextSecondary) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        },
-                        confirmButton = {
-                            Button(onClick = {
-                                val q = newInvQuantity.toIntOrNull() ?: 0
-                                if (newInvName.isNotBlank() && q > 0) {
-                                    val newItem = InventoryItem(name = newInvName, dose = newInvDose, quantity = q, totalCapacity = q)
-                                    val newInv = inventory + newItem
-                                    inventory = newInv
-                                    LocalStorage.saveInventory(context, newInv)
-                                    showAddInventoryDialog = false
-                                }
-                            }) { Text("保存") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showAddInventoryDialog = false }) { Text("取消") }
-                        }
-                    )
-                }
+            item(key = "inventory_card") {
+                InventoryCard()
             }
 
-            item {
+            item(key = "stats_card") {
                 GlassCard(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2392,25 +2256,11 @@ fun ProfileScreen(
                     }
                     Spacer(modifier = Modifier.height(14.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                        var showStats by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            showStats = true
-                        }
-
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val animLogsSize by animateIntAsState(
-                                targetValue = if (showStats) logs.size else 0,
-                                animationSpec = tween(800, easing = FastOutSlowInEasing)
-                            )
                             Text("$animLogsSize", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                             Text("总服药记录", color = AppColors.TextSecondary, fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val medTypes = logs.map { it.name }.distinct().size
-                            val animMedTypes by animateIntAsState(
-                                targetValue = if (showStats) medTypes else 0,
-                                animationSpec = tween(800, easing = FastOutSlowInEasing)
-                            )
                             Text("$animMedTypes", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                             Text("常备药品", color = AppColors.TextSecondary, fontSize = 12.sp)
                         }
@@ -2515,7 +2365,7 @@ fun ProfileScreen(
             }
 
             // Custom Wallpaper Settings Card
-            item {
+            item(key = "wallpaper_card") {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2586,7 +2436,7 @@ fun ProfileScreen(
             }
 
             // Version info footer
-            item {
+            item(key = "footer") {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2999,6 +2849,158 @@ fun AddLogSheet(
                 Text(if (isSearching) "查询中..." else "确认记录", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+@Composable
+fun InventoryCard() {
+    val context = LocalContext.current
+    var inventory by remember { mutableStateOf(LocalStorage.loadInventory(context)) }
+    var showAddInventoryDialog by remember { mutableStateOf(false) }
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(Color(0xFFE0E7FF), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("📦", fontSize = 22.sp)
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text("我的药箱", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("库存管理与提醒", color = AppColors.TextSecondary, fontSize = 12.sp)
+                }
+            }
+            IconButton(onClick = { showAddInventoryDialog = true }) {
+                Icon(Icons.Filled.Add, contentDescription = "Add Inventory", tint = AppColors.Primary)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        if (inventory.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .background(AppColors.SurfaceVariant, RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("药箱空空如也，点击右上角添加", color = AppColors.TextTertiary, fontSize = 12.sp)
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                inventory.forEach { item ->
+                    val percent = if (item.totalCapacity > 0) item.quantity.toFloat() / item.totalCapacity else 0f
+                    val isLow = item.quantity <= (item.totalCapacity * 0.2f).coerceAtLeast(5f)
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = AppColors.Background,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isLow) Color(0xFFEF4444).copy(alpha = 0.5f) else AppColors.Border)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(item.name, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    if (isLow) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFFFEE2E2)
+                                        ) {
+                                            Text("余量不足", color = Color(0xFFEF4444), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                                        }
+                                    }
+                                }
+                                Text("${item.dose}mg", color = AppColors.TextSecondary, fontSize = 11.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("剩余 ${item.quantity} / ${item.totalCapacity}", color = if (isLow) Color(0xFFEF4444) else AppColors.Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(modifier = Modifier.width(80.dp).height(4.dp).background(AppColors.SurfaceVariant, RoundedCornerShape(2.dp))) {
+                                    Box(modifier = Modifier.fillMaxWidth(percent).height(4.dp).background(if (isLow) Color(0xFFEF4444) else AppColors.Primary, RoundedCornerShape(2.dp)))
+                                }
+                            }
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = "Delete",
+                                tint = AppColors.TextTertiary,
+                                modifier = Modifier.size(16.dp).clickable {
+                                    val newInv = inventory.filter { it.id != item.id }
+                                    inventory = newInv
+                                    LocalStorage.saveInventory(context, newInv)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddInventoryDialog) {
+        var newInvName by remember { mutableStateOf("") }
+        var newInvDose by remember { mutableStateOf("") }
+        var newInvQuantity by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showAddInventoryDialog = false },
+            containerColor = AppColors.Card,
+            title = { Text("添加药品库存", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newInvName,
+                        onValueChange = { newInvName = it },
+                        label = { Text("药物名称", color = AppColors.TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newInvDose,
+                        onValueChange = { newInvDose = it },
+                        label = { Text("单次剂量 (mg)", color = AppColors.TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newInvQuantity,
+                        onValueChange = { newInvQuantity = it },
+                        label = { Text("当前总数量", color = AppColors.TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val q = newInvQuantity.toIntOrNull() ?: 0
+                    if (newInvName.isNotBlank() && q > 0) {
+                        val newItem = InventoryItem(name = newInvName, dose = newInvDose, quantity = q, totalCapacity = q)
+                        val newInv = inventory + newItem
+                        inventory = newInv
+                        LocalStorage.saveInventory(context, newInv)
+                        showAddInventoryDialog = false
+                    }
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddInventoryDialog = false }) { Text("取消") }
+            }
+        )
     }
 }
 
