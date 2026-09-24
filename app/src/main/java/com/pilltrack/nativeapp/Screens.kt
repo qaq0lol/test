@@ -316,6 +316,7 @@ fun AvatarView(
     Box(
         modifier = Modifier
             .size(size)
+            .clip(CircleShape)
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         contentAlignment = Alignment.Center
     ) {
@@ -465,7 +466,9 @@ fun TodayScreen(
                     // Add staggered animation to list items
                     var isVisible by remember { mutableStateOf(false) }
                     LaunchedEffect(log.id) {
-                        kotlinx.coroutines.delay(index * 100L)
+                        // Cap the delay for very long lists so users aren't waiting forever
+                        val delayIndex = minOf(index, 6)
+                        kotlinx.coroutines.delay(delayIndex * 80L)
                         isVisible = true
                     }
 
@@ -500,6 +503,7 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(20.dp),
         color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
@@ -1254,7 +1258,9 @@ fun EditLogSheet(
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Surface(
-                        modifier = Modifier.weight(1.3f).clickable {
+                        modifier = Modifier.weight(1.3f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
                             DatePickerDialog(
                                 context,
                                 { _, y, m, d ->
@@ -1283,7 +1289,9 @@ fun EditLogSheet(
                     }
 
                     Surface(
-                        modifier = Modifier.weight(1f).clickable {
+                        modifier = Modifier.weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
                             TimePickerDialog(
                                 context,
                                 { _, hourOfDay, minute ->
@@ -1463,7 +1471,9 @@ fun HistoryScreen(
                                 Icons.Filled.Clear,
                                 contentDescription = "Clear",
                                 tint = AppColors.TextSecondary,
-                                modifier = Modifier.clickable { searchQuery = "" }
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .clickable { searchQuery = "" }
                             )
                         }
                     },
@@ -1495,6 +1505,7 @@ fun HistoryScreen(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
                                 .clickable { onDateClick(dateStr) },
                             shape = RoundedCornerShape(20.dp),
                             color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
@@ -1609,7 +1620,9 @@ fun DetailScreen(
 
                     // Add log for this specific date button!
                     Surface(
-                        modifier = Modifier.clickable { onAddLogForDate() },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onAddLogForDate() },
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFF2563EB),
                         shadowElevation = 6.dp
@@ -1655,7 +1668,9 @@ fun DetailScreen(
                     // Add staggered animation to list items
                     var isVisible by remember { mutableStateOf(false) }
                     LaunchedEffect(log.id) {
-                        kotlinx.coroutines.delay(index * 100L)
+                        // Cap the delay for very long lists so users aren't waiting forever
+                        val delayIndex = minOf(index, 6)
+                        kotlinx.coroutines.delay(delayIndex * 80L)
                         isVisible = true
                     }
 
@@ -2117,11 +2132,14 @@ fun ProfileScreen(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable {
-                            editNickname = userProfile.nickname
-                            editSignature = userProfile.signature
-                            showEditProfileDialog = true
-                        }
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                editNickname = userProfile.nickname
+                                editSignature = userProfile.signature
+                                showEditProfileDialog = true
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
                             userProfile.nickname,
@@ -2235,6 +2253,7 @@ fun ProfileScreen(
                 GlassCard(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
                         .clickable { onShowStatsDetail() }
                 ) {
                     Row(
@@ -2588,17 +2607,19 @@ fun AddLogSheet(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFEFF6FF),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
-                    modifier = Modifier.clickable {
-                        if (!isManagingDrugs) {
-                            medName = dName
-                            doseStr = dDose
-                            stomachState = dStomach
-                        } else {
-                            val newDrugs = customDrugs.filter { it.first != dName || it.second != dDose }
-                            customDrugs = newDrugs
-                            LocalStorage.saveCustomDrugs(context, newDrugs)
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            if (!isManagingDrugs) {
+                                medName = dName
+                                doseStr = dDose
+                                stomachState = dStomach
+                            } else {
+                                val newDrugs = customDrugs.filter { it.first != dName || it.second != dDose }
+                                customDrugs = newDrugs
+                                LocalStorage.saveCustomDrugs(context, newDrugs)
+                            }
                         }
-                    }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                         Text(
@@ -2620,23 +2641,25 @@ fun AddLogSheet(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFF1F5F9),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        modifier = Modifier.clickable {
-                            if (medName.isNotBlank() && doseStr.isNotBlank()) {
-                                // Prevent exact duplicates from crashing Compose by ensuring it's not already in list
-                                val isDuplicate = customDrugs.any { it.first == medName && it.second == doseStr }
-                                if (!isDuplicate) {
-                                    val newDrugs = customDrugs + Triple(medName, doseStr, stomachState)
-                                    customDrugs = newDrugs
-                                    LocalStorage.saveCustomDrugs(context, newDrugs)
-                                    medName = ""
-                                    doseStr = ""
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                if (medName.isNotBlank() && doseStr.isNotBlank()) {
+                                    // Prevent exact duplicates from crashing Compose by ensuring it's not already in list
+                                    val isDuplicate = customDrugs.any { it.first == medName && it.second == doseStr }
+                                    if (!isDuplicate) {
+                                        val newDrugs = customDrugs + Triple(medName, doseStr, stomachState)
+                                        customDrugs = newDrugs
+                                        LocalStorage.saveCustomDrugs(context, newDrugs)
+                                        medName = ""
+                                        doseStr = ""
+                                    } else {
+                                        android.widget.Toast.makeText(context, "该药品已存在", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
                                 } else {
-                                    android.widget.Toast.makeText(context, "该药品已存在", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, "请先在下方输入框填写药物名称和剂量", android.widget.Toast.LENGTH_SHORT).show()
                                 }
-                            } else {
-                                android.widget.Toast.makeText(context, "请先在下方输入框填写药物名称和剂量", android.widget.Toast.LENGTH_SHORT).show()
                             }
-                        }
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                             Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color(0xFF64748B), modifier = Modifier.size(14.dp))
@@ -2695,14 +2718,19 @@ fun AddLogSheet(
                 color = Color(0xFF2563EB),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { recordTimeMillis = System.currentTimeMillis() }
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { recordTimeMillis = System.currentTimeMillis() }
+                    .padding(4.dp)
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             // Date Picker trigger
             Surface(
-                modifier = Modifier.weight(1.3f).clickable {
+                modifier = Modifier.weight(1.3f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
                     DatePickerDialog(
                         context,
                         { _, y, m, d ->
@@ -2732,7 +2760,9 @@ fun AddLogSheet(
 
             // Time Picker trigger
             Surface(
-                modifier = Modifier.weight(1f).clickable {
+                modifier = Modifier.weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
                     TimePickerDialog(
                         context,
                         { _, hourOfDay, minute ->
@@ -2938,11 +2968,14 @@ fun InventoryCard() {
                                 Icons.Filled.Delete,
                                 contentDescription = "Delete",
                                 tint = AppColors.TextTertiary,
-                                modifier = Modifier.size(16.dp).clickable {
-                                    val newInv = inventory.filter { it.id != item.id }
-                                    inventory = newInv
-                                    LocalStorage.saveInventory(context, newInv)
-                                }
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        val newInv = inventory.filter { it.id != item.id }
+                                        inventory = newInv
+                                        LocalStorage.saveInventory(context, newInv)
+                                    }
                             )
                         }
                     }
@@ -3183,7 +3216,9 @@ fun WallpaperAdjustScreen(
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = if (showUiPreview) Color(0xFF2563EB) else Color.White.copy(alpha = 0.15f),
-                        modifier = Modifier.clickable { showUiPreview = !showUiPreview }
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showUiPreview = !showUiPreview }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -3275,7 +3310,9 @@ fun WallpaperAdjustScreen(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color.White.copy(alpha = 0.12f),
-                            modifier = Modifier.clickable { rotation = (rotation + 90f) % 360f }
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { rotation = (rotation + 90f) % 360f }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -3291,12 +3328,14 @@ fun WallpaperAdjustScreen(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color.White.copy(alpha = 0.12f),
-                            modifier = Modifier.clickable {
-                                scale = 1.0f
-                                offsetX = 0f
-                                offsetY = 0f
-                                rotation = 0f
-                            }
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    scale = 1.0f
+                                    offsetX = 0f
+                                    offsetY = 0f
+                                    rotation = 0f
+                                }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -3316,7 +3355,9 @@ fun WallpaperAdjustScreen(
                                 1.dp,
                                 if (showAlphaControl) Color(0xFF38BDF8) else Color.Transparent
                             ),
-                            modifier = Modifier.clickable { showAlphaControl = !showAlphaControl }
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showAlphaControl = !showAlphaControl }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),

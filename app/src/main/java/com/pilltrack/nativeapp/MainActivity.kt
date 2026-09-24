@@ -831,6 +831,7 @@ fun NavItem(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxHeight()
+            .clip(RoundedCornerShape(34.dp))
             .clickable(onClick = onClick)
     ) {
         Column(
