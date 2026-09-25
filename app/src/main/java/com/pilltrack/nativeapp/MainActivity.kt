@@ -36,7 +36,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -203,13 +205,21 @@ fun PillTrackApp() {
 
     // 6. Double back to exit when on root "today" tab with no overlays
     var lastBackPressTime by remember { mutableStateOf(0L) }
+    var showExitToast by remember { mutableStateOf(false) }
+    LaunchedEffect(showExitToast) {
+        if (showExitToast) {
+            delay(2000L)
+            showExitToast = false
+        }
+    }
+
     BackHandler(enabled = !isOverlayActive && detailDate == null && selectedTab == "today") {
         val now = System.currentTimeMillis()
         if (now - lastBackPressTime < 2000L) {
             (context as? android.app.Activity)?.finish()
         } else {
             lastBackPressTime = now
-            android.widget.Toast.makeText(context, "再按一次返回键退出应用", android.widget.Toast.LENGTH_SHORT).show()
+            showExitToast = true
         }
     }
 
@@ -469,12 +479,14 @@ fun PillTrackApp() {
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val haptic = LocalHapticFeedback.current
                             NavItem(
                                 icon = Icons.Filled.Home,
                                 label = "今日",
                                 isSelected = selectedTab == "today",
                                 modifier = Modifier.weight(1f)
                             ) {
+                                if (selectedTab != "today") haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 selectedTab = "today"
                             }
                             NavItem(
@@ -483,6 +495,7 @@ fun PillTrackApp() {
                                 isSelected = selectedTab == "history",
                                 modifier = Modifier.weight(1f)
                             ) {
+                                if (selectedTab != "history") haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 selectedTab = "history"
                             }
                             NavItem(
@@ -491,6 +504,7 @@ fun PillTrackApp() {
                                 isSelected = selectedTab == "profile",
                                 modifier = Modifier.weight(1f)
                             ) {
+                                if (selectedTab != "profile") haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 selectedTab = "profile"
                             }
                         }
@@ -505,10 +519,8 @@ fun PillTrackApp() {
                 exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300, easing = LinearEasing)),
                 modifier = Modifier.fillMaxSize()
             ) {
-                val streak = remember(logs) { LocalStorage.calculateStreak(logs) }
                 StatsDetailSheet(
                     logs = logs,
-                    streak = streak,
                     onDismiss = { showStatsDetail = false }
                 )
             }
@@ -620,6 +632,27 @@ fun PillTrackApp() {
                         )
                     }
                 }
+            }
+        }
+
+        // Custom App-level Toast for Exit Warning
+        AnimatedVisibility(
+            visible = showExitToast,
+            enter = slideInVertically(initialOffsetY = { 50 }, animationSpec = spring(stiffness = Spring.StiffnessLow)) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { 50 }, animationSpec = tween(250)) + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 120.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF1E293B).copy(alpha = 0.9f),
+                shadowElevation = 8.dp
+            ) {
+                Text(
+                    text = "再按一次返回键退出应用",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
             }
         }
 

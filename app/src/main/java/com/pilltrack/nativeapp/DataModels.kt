@@ -57,57 +57,92 @@ object LocalStorage {
     }
 
     fun saveLogs(context: Context, logs: List<PillLog>) {
-        // P1-1: 文件原子写 + .bak，自用防杀进程写一半丢数据
         try {
             val json = Gson().toJson(logs)
-            val dst = File(context.filesDir, "pill_logs.json")
-            val tmp = File(context.filesDir, "pill_logs.json.tmp")
-            val bak = File(context.filesDir, "pill_logs.json.bak")
-            tmp.writeText(json)
+            val encryptedJson = CryptoManager.encrypt(json.toByteArray())
+            val dst = File(context.filesDir, "pill_logs.enc")
+            val tmp = File(context.filesDir, "pill_logs.enc.tmp")
+            val bak = File(context.filesDir, "pill_logs.enc.bak")
+            tmp.writeText(encryptedJson)
             if (dst.exists()) dst.copyTo(bak, overwrite = true)
             tmp.renameTo(dst)
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        // 兼容期双写旧prefs，迁完可删
+        // Save encrypted to prefs
         try {
-            getPrefs(context).edit().putString(KEY_LOGS, Gson().toJson(logs)).apply()
+            val encryptedJson = CryptoManager.encrypt(Gson().toJson(logs).toByteArray())
+            getPrefs(context).edit().putString(KEY_LOGS, encryptedJson).apply()
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     fun loadLogs(context: Context): List<PillLog> {
-        // 文件优先，坏了读.bak，最后才回退旧prefs并迁移
         val type = object : TypeToken<List<PillLog>>() {}.type
-        fun parse(text: String?): List<PillLog>? = try {
-            if (text.isNullOrEmpty()) null else Gson().fromJson<List<PillLog>>(text, type)
+        fun parseEncrypted(encryptedText: String?): List<PillLog>? = try {
+            if (encryptedText.isNullOrEmpty()) null
+            else {
+                val decrypted = String(CryptoManager.decrypt(encryptedText))
+                Gson().fromJson<List<PillLog>>(decrypted, type)
+            }
         } catch (e: Exception) {
             null
         }
+
         try {
-            val dst = File(context.filesDir, "pill_logs.json")
-            if (dst.exists()) parse(dst.readText())?.let { return it }
-            val bak = File(context.filesDir, "pill_logs.json.bak")
-            if (bak.exists()) parse(bak.readText())?.let { return it }
+            val dst = File(context.filesDir, "pill_logs.enc")
+            if (dst.exists()) parseEncrypted(dst.readText())?.let { return it }
+            val bak = File(context.filesDir, "pill_logs.enc.bak")
+            if (bak.exists()) parseEncrypted(bak.readText())?.let { return it }
+
+            // Migration block for old plaintext json file
+            val oldPlaintextDst = File(context.filesDir, "pill_logs.json")
+            if (oldPlaintextDst.exists()) {
+                val plaintext = oldPlaintextDst.readText()
+                val oldLogs = Gson().fromJson<List<PillLog>>(plaintext, type)
+                if (oldLogs != null) {
+                    saveLogs(context, oldLogs) // Resave encrypted
+                    oldPlaintextDst.delete()
+                    File(context.filesDir, "pill_logs.json.bak").delete()
+                    return oldLogs
+                }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        val old = getPrefs(context).getString(KEY_LOGS, null) ?: return emptyList()
-        return parse(old) ?: emptyList()
+
+        val encryptedPrefsStr = getPrefs(context).getString(KEY_LOGS, null) ?: return emptyList()
+        return parseEncrypted(encryptedPrefsStr) ?: emptyList()
     }
 
     fun saveProfile(context: Context, profile: UserProfile) {
         val gson = Gson()
         val json = gson.toJson(profile)
-        getPrefs(context).edit().putString(KEY_PROFILE, json).apply()
+        try {
+            val encryptedJson = CryptoManager.encrypt(json.toByteArray())
+            getPrefs(context).edit().putString(KEY_PROFILE, encryptedJson).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun loadProfile(context: Context): UserProfile {
-        val json = getPrefs(context).getString(KEY_PROFILE, null) ?: return UserProfile()
+        val encryptedJson = getPrefs(context).getString(KEY_PROFILE, null) ?: return UserProfile()
         return try {
-            Gson().fromJson(json, UserProfile::class.java) ?: UserProfile()
+            val decryptedJson = String(CryptoManager.decrypt(encryptedJson))
+            Gson().fromJson(decryptedJson, UserProfile::class.java) ?: UserProfile()
         } catch (e: Exception) {
+            try {
+                // Migration fallback for legacy plaintext profiles
+                val legacyProfile = Gson().fromJson(encryptedJson, UserProfile::class.java)
+                if (legacyProfile != null) {
+                    saveProfile(context, legacyProfile) // Auto-migrate to encrypted storage
+                    return legacyProfile
+                }
+            } catch (innerE: Exception) {
+                // Ignore
+            }
             UserProfile()
         }
     }
@@ -115,47 +150,68 @@ object LocalStorage {
     fun saveCustomDrugs(context: Context, drugs: List<Triple<String, String, String>>) {
         try {
             val json = Gson().toJson(drugs)
-            getPrefs(context).edit().putString(KEY_CUSTOM_DRUGS, json).apply()
+            val encryptedJson = CryptoManager.encrypt(json.toByteArray())
+            getPrefs(context).edit().putString(KEY_CUSTOM_DRUGS, encryptedJson).apply()
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     fun loadCustomDrugs(context: Context): List<Triple<String, String, String>> {
-        val json = getPrefs(context).getString(KEY_CUSTOM_DRUGS, null)
-        if (json.isNullOrEmpty()) {
-            return listOf(
-                Triple("布洛芬", "400", "empty"),
-                Triple("对乙酰氨基酚", "500", "full"),
-                Triple("阿莫西林", "500", "full"),
-                Triple("维生素C", "100", "full"),
-                Triple("氯雷他定", "10", "empty"),
-                Triple("阿司匹林", "100", "full")
-            )
+        val defaultList = listOf(
+            Triple("布洛芬", "400", "empty"),
+            Triple("对乙酰氨基酚", "500", "full"),
+            Triple("阿莫西林", "500", "full"),
+            Triple("维生素C", "100", "full"),
+            Triple("氯雷他定", "10", "empty"),
+            Triple("阿司匹林", "100", "full")
+        )
+        val encryptedJson = getPrefs(context).getString(KEY_CUSTOM_DRUGS, null)
+        if (encryptedJson.isNullOrEmpty()) {
+            return defaultList
         }
         return try {
+            val decryptedJson = String(CryptoManager.decrypt(encryptedJson))
             val type = object : TypeToken<List<Triple<String, String, String>>>() {}.type
-            Gson().fromJson(json, type) ?: emptyList()
+            Gson().fromJson(decryptedJson, type) ?: defaultList
         } catch (e: Exception) {
-            emptyList()
+            try {
+                val type = object : TypeToken<List<Triple<String, String, String>>>() {}.type
+                val legacyList = Gson().fromJson<List<Triple<String, String, String>>>(encryptedJson, type)
+                if (legacyList != null) {
+                    saveCustomDrugs(context, legacyList)
+                    return legacyList
+                }
+            } catch (inner: Exception) { }
+            defaultList
         }
     }
 
     fun saveInventory(context: Context, inventory: List<InventoryItem>) {
         try {
             val json = Gson().toJson(inventory)
-            getPrefs(context).edit().putString(KEY_INVENTORY, json).apply()
+            val encryptedJson = CryptoManager.encrypt(json.toByteArray())
+            getPrefs(context).edit().putString(KEY_INVENTORY, encryptedJson).apply()
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     fun loadInventory(context: Context): List<InventoryItem> {
-        val json = getPrefs(context).getString(KEY_INVENTORY, null) ?: return emptyList()
+        val encryptedJson = getPrefs(context).getString(KEY_INVENTORY, null) ?: return emptyList()
         return try {
+            val decryptedJson = String(CryptoManager.decrypt(encryptedJson))
             val type = object : TypeToken<List<InventoryItem>>() {}.type
-            Gson().fromJson(json, type) ?: emptyList()
+            Gson().fromJson(decryptedJson, type) ?: emptyList()
         } catch (e: Exception) {
+            try {
+                val type = object : TypeToken<List<InventoryItem>>() {}.type
+                val legacyList = Gson().fromJson<List<InventoryItem>>(encryptedJson, type)
+                if (legacyList != null) {
+                    saveInventory(context, legacyList)
+                    return legacyList
+                }
+            } catch (inner: Exception) { }
             emptyList()
         }
     }
@@ -249,22 +305,6 @@ object LocalStorage {
             .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
 
     private val weekNames = arrayOf("一", "二", "三", "四", "五", "六", "日")
-
-    // Calculate continuous recording streak (days)
-    fun calculateStreak(logs: List<PillLog>): Int {
-        if (logs.isEmpty()) return 0
-        val logDates = logs.map { logLocalDate(it.time) }.toSet()
-
-        var day = LocalDate.now()
-        // 今天还没记，允许从昨天起算
-        if (!logDates.contains(day)) day = day.minusDays(1)
-        var streak = 0
-        while (logDates.contains(day)) {
-            streak++
-            day = day.minusDays(1)
-        }
-        return streak
-    }
 
     // Check past 7 days (index 0 is 6 days ago, index 6 is today)
     fun getWeekAdherence(logs: List<PillLog>): List<Pair<String, Boolean>> {
