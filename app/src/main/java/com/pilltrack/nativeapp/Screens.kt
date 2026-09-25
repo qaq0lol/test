@@ -441,6 +441,11 @@ fun TodayScreen(
                     Box(modifier = Modifier.fillMaxWidth().height(210.dp)) {
                         PharmacokineticsChart(logs = todayLogs, modifier = Modifier.fillMaxSize())
                     }
+
+                    if (todayLogs.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        PharmacokineticsClearanceDashboard(logs = todayLogs)
+                    }
                 }
             }
 
@@ -785,6 +790,36 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                             width = 2f,
                             pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                         )
+                    )
+
+                    // Therapeutic Window Zone (有效治疗浓度参考区间)
+                    val windowTop = chartBottom * 0.30f
+                    val windowBottom = chartBottom * 0.70f
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF10B981).copy(alpha = 0.08f),
+                                Color(0xFF10B981).copy(alpha = 0.02f)
+                            ),
+                            startY = windowTop,
+                            endY = windowBottom
+                        ),
+                        topLeft = Offset(0f, windowTop),
+                        size = androidx.compose.ui.geometry.Size(w, windowBottom - windowTop)
+                    )
+                    drawLine(
+                        color = Color(0xFF10B981).copy(alpha = 0.25f),
+                        start = Offset(0f, windowTop),
+                        end = Offset(w, windowTop),
+                        strokeWidth = 1.5f,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                    )
+                    drawLine(
+                        color = Color(0xFF10B981).copy(alpha = 0.15f),
+                        start = Offset(0f, windowBottom),
+                        end = Offset(w, windowBottom),
+                        strokeWidth = 1.5f,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
                     )
 
                     val earliestLog = logs.minByOrNull { it.time }!!
@@ -1146,6 +1181,157 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     fontSize = 11.sp,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier = Modifier) {
+    if (logs.isEmpty()) return
+
+    val currentTime = remember { System.currentTimeMillis() }
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+
+    // Group logs by medication name and find the latest dose
+    val latestLogsByDrug = remember(logs) {
+        logs.groupBy { it.name }.map { (_, drugLogs) ->
+            drugLogs.maxByOrNull { it.time }!!
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF0F172A).copy(alpha = 0.55f))
+            .border(1.dp, Color(0xFF334155).copy(alpha = 0.60f), RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⏳", fontSize = 13.sp)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    "体内代谢清空预估",
+                    color = AppColors.TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp, 3.dp)
+                        .background(Color(0xFF10B981), RoundedCornerShape(2.dp))
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    "绿色虚线: 推荐起效区间",
+                    color = Color(0xFF10B981),
+                    fontSize = 10.sp
+                )
+            }
+        }
+
+        latestLogsByDrug.forEach { log ->
+            val halfLife = if (log.halfLife > 0.1f) log.halfLife else 3.0f
+            // Full clearance (to <5% peak) is approximately 4.5 half-lives
+            val totalClearanceMillis = (halfLife * 4.5f * 60 * 60 * 1000).toLong()
+            val clearanceTimeMillis = log.time + totalClearanceMillis
+            val elapsedMillis = (currentTime - log.time).coerceAtLeast(0L)
+            val remainingMillis = (clearanceTimeMillis - currentTime).coerceAtLeast(0L)
+            val progress = (elapsedMillis.toFloat() / totalClearanceMillis.toFloat()).coerceIn(0f, 1f)
+
+            val (statusText, statusColor) = when {
+                progress >= 1f -> "✨ 基本清空" to Color(0xFF94A3B8)
+                progress >= 0.65f -> "📉 衰减清除期" to Color(0xFFF59E0B)
+                progress >= 0.25f -> "⚖️ 稳定起效中" to Color(0xFF10B981)
+                else -> "🚀 吸收达峰期" to Color(0xFF38BDF8)
+            }
+
+            val remainingHours = remainingMillis / (1000 * 60 * 60)
+            val remainingMins = (remainingMillis / (1000 * 60)) % 60
+            val clearanceTimeStr = timeFormat.format(Date(clearanceTimeMillis))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF1E293B).copy(alpha = 0.60f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "${log.name} (${log.dose})",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = statusColor.copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, statusColor.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            statusText,
+                            color = statusColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Progress bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color(0xFF334155))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress)
+                            .fillMaxHeight()
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFF3B82F6), statusColor)
+                                )
+                            )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        if (remainingMillis > 0) "预计 ${clearanceTimeStr} 代谢完成" else "已于 ${clearanceTimeStr} 代谢完成",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        if (remainingMillis > 0) "还剩 ${remainingHours}h ${remainingMins}m (${(progress * 100).toInt()}% 已代谢)" else "100% 已代谢",
+                        color = statusColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
@@ -1650,6 +1836,11 @@ fun DetailScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(210.dp)) {
                         PharmacokineticsChart(logs = dayLogs, modifier = Modifier.fillMaxSize())
+                    }
+
+                    if (dayLogs.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        PharmacokineticsClearanceDashboard(logs = dayLogs)
                     }
                 }
             }
@@ -2522,7 +2713,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.21 · Build 23",
+                        "版本号: v1.22 · Build 24",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )

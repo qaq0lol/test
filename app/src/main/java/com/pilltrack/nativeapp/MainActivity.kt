@@ -267,6 +267,7 @@ fun PillTrackApp() {
                                     val newLogs = logs.filter { it.time != logToDelete.time }
                                     logs = newLogs
                                     LocalStorage.saveLogs(context, newLogs)
+                                    PillTrackWidgetProvider.updateAllWidgets(context)
                                 }
                             )
                         }
@@ -321,12 +322,14 @@ fun PillTrackApp() {
                                                 updatedList[index] = newLog
                                                 logs = updatedList
                                                 LocalStorage.saveLogs(context, updatedList)
+                                                PillTrackWidgetProvider.updateAllWidgets(context)
                                             }
                                         },
                                         onDeleteLog = { logToDelete ->
                                             val newLogs = logs.filter { it.time != logToDelete.time }
                                             logs = newLogs
                                             LocalStorage.saveLogs(context, newLogs)
+                                            PillTrackWidgetProvider.updateAllWidgets(context)
                                         },
                                         onBack = { detailDate = null }
                                     )
@@ -605,6 +608,7 @@ fun PillTrackApp() {
                                     val newLogs = logs + newLog
                                     logs = newLogs
                                     LocalStorage.saveLogs(context, newLogs)
+                                    PillTrackWidgetProvider.updateAllWidgets(context)
 
                                     // Also deduct from inventory!
                                     LocalStorage.deductInventory(context, name, dose)
@@ -803,7 +807,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    "v1.21",
+                    "v1.22",
                     color = AppColors.Primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
