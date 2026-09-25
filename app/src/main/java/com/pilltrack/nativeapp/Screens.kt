@@ -1727,19 +1727,19 @@ fun StatsDetailSheet(
 
     val animTotalDoses by animateIntAsState(
         targetValue = if (showStats) totalDoses else 0,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
     )
     val animTotalMg by animateFloatAsState(
         targetValue = if (showStats) totalMg else 0f,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
     )
     val animDistinctDrugCount by animateIntAsState(
         targetValue = if (showStats) distinctDrugCount else 0,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
     )
     val animStreak by animateIntAsState(
         targetValue = if (showStats) streak else 0,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
     )
 
     // Stomach breakdown
@@ -2059,6 +2059,369 @@ fun StatsDetailSheet(
     }
 }
 
+// Deep Optimization: Extract pure functional components to prevent List-wide recomposition
+@Composable
+fun ProfileHeaderCard(
+    userProfile: UserProfile,
+    avatarBitmap: Bitmap?,
+    onAvatarClick: () -> Unit,
+    onEditProfileClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AvatarView(
+            avatarBitmap = avatarBitmap,
+            size = 96.dp,
+            showCameraBadge = true,
+            onClick = onAvatarClick
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onEditProfileClick() }
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text(
+                userProfile.nickname,
+                style = MaterialTheme.typography.titleLarge,
+                color = AppColors.TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Icon(
+                Icons.Filled.Edit,
+                contentDescription = "编辑资料",
+                tint = AppColors.Primary,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            userProfile.signature,
+            color = AppColors.TextSecondary,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+fun StreakCard(streak: Int, showStats: Boolean) {
+    val animStreak by animateIntAsState(
+        targetValue = if (showStats) streak else 0,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
+    )
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(Color(0xFFFEF3C7), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🔥", fontSize = 24.sp)
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text("连续服药打卡", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("按时记录，守护健康每一天", color = AppColors.TextSecondary, fontSize = 12.sp)
+                }
+            }
+            Text(
+                "$animStreak 天",
+                color = Color(0xFFD97706),
+                fontWeight = FontWeight.Black,
+                fontSize = 22.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun WeekAdherenceCard(weekAdherence: List<Pair<String, Boolean>>, showStats: Boolean) {
+    val completedCount = remember(weekAdherence) { weekAdherence.count { it.second } }
+    val animCompletedCount by animateIntAsState(
+        targetValue = if (showStats) completedCount else 0,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
+    )
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("📅 近7天服药考勤", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text("$animCompletedCount/7 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            weekAdherence.forEach { (dayName, isChecked) ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                if (isChecked) Color(0xFF10B981).copy(alpha = 0.25f)
+                                else AppColors.SurfaceVariant,
+                                CircleShape
+                            )
+                            .border(
+                                1.dp,
+                                if (isChecked) Color(0xFF10B981) else AppColors.Border,
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isChecked) {
+                            Icon(Icons.Filled.Check, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                        } else {
+                            Box(modifier = Modifier.size(6.dp).background(AppColors.TextTertiary, CircleShape))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(dayName, color = AppColors.TextSecondary, fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OverallStatsCard(logsSize: Int, medTypes: Int, streak: Int, showStats: Boolean, onShowStatsDetail: () -> Unit) {
+    val animLogsSize by animateIntAsState(
+        targetValue = if (showStats) logsSize else 0,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
+    )
+    val animMedTypes by animateIntAsState(
+        targetValue = if (showStats) medTypes else 0,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
+    )
+
+    GlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .clickable { onShowStatsDetail() }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("📊 数据统计与汇总", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(AppColors.PrimaryContainer, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text("查看明细", color = AppColors.Primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.width(2.dp))
+                Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "查看明细", tint = AppColors.Primary, modifier = Modifier.size(14.dp))
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("$animLogsSize", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("总服药记录", color = AppColors.TextSecondary, fontSize = 12.sp)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("$animMedTypes", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("常备药品", color = AppColors.TextSecondary, fontSize = 12.sp)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val avgDoses = if (streak > 0) String.format(Locale.getDefault(), "%.1f", logsSize.toFloat() / streak.coerceAtLeast(1)) else "0"
+                Text(avgDoses, color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("日均服药", color = AppColors.TextSecondary, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun ThemeSettingsCard(userProfile: UserProfile, onUpdateProfile: (UserProfile) -> Unit) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(AppColors.PrimaryContainer, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🌓", fontSize = 22.sp)
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text("外观与深色模式", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    val currentModeLabel = when (userProfile.themeMode) {
+                        "dark" -> "当前为强制深色模式"
+                        "light" -> "当前为强制浅色模式"
+                        else -> "当前跟随手机系统"
+                    }
+                    Text(
+                        currentModeLabel,
+                        color = AppColors.TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val modes = listOf(
+                Triple("system", "跟随系统", Icons.Filled.SettingsBrightness),
+                Triple("light", "浅色", Icons.Filled.LightMode),
+                Triple("dark", "深色", Icons.Filled.DarkMode)
+            )
+            modes.forEach { (mode, label, icon) ->
+                val isSelected = userProfile.themeMode == mode
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            if (!isSelected) {
+                                val updated = userProfile.copy(themeMode = mode)
+                                AppColors.themeMode = mode
+                                onUpdateProfile(updated)
+                            }
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) AppColors.Primary else AppColors.Card.copy(alpha = 0.5f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isSelected) AppColors.Primary else AppColors.Border
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            tint = if (isSelected) Color.White else AppColors.TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            label,
+                            color = if (isSelected) Color.White else AppColors.TextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WallpaperSettingsCard(
+    customBgBitmap: Bitmap?,
+    onSelectBackground: () -> Unit,
+    onAdjustBackground: () -> Unit,
+    onResetBackground: () -> Unit
+) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(AppColors.PrimaryContainer, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🖼️", fontSize = 22.sp)
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text("个性化壁纸设置", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        if (customBgBitmap != null) "已启用相册自定义壁纸" else "当前使用默认晨光亮色主题",
+                        color = AppColors.TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = onSelectBackground,
+                modifier = Modifier.weight(1.2f).height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+            ) {
+                Icon(Icons.Filled.Image, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("从相册导入", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            if (customBgBitmap != null) {
+                OutlinedButton(
+                    onClick = onAdjustBackground,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary)
+                ) {
+                    Text("调节效果", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
+                    onClick = onResetBackground,
+                    modifier = Modifier.weight(0.9f).height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.TextSecondary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border)
+                ) {
+                    Text("恢复默认", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun ProfileScreen(
     userProfile: UserProfile,
@@ -2078,34 +2441,13 @@ fun ProfileScreen(
 
     val streak = remember(logs) { LocalStorage.calculateStreak(logs) }
     val weekAdherence = remember(logs) { LocalStorage.getWeekAdherence(logs) }
+    val medTypes = remember(logs) { logs.map { it.name }.distinct().size }
 
-    // Hoisting animation states up so they aren't repeatedly recomposed inside LazyColumn items during scroll
+    // Use a spring physics animation trigger so it doesn't drop frames during quick scrolling
     var showStats by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         showStats = true
     }
-
-    val animStreak by animateIntAsState(
-        targetValue = if (showStats) streak else 0,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
-    )
-
-    val completedCount = remember(weekAdherence) { weekAdherence.count { it.second } }
-    val animCompletedCount by animateIntAsState(
-        targetValue = if (showStats) completedCount else 0,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
-    )
-
-    val animLogsSize by animateIntAsState(
-        targetValue = if (showStats) logs.size else 0,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
-    )
-
-    val medTypes = remember(logs) { logs.map { it.name }.distinct().size }
-    val animMedTypes by animateIntAsState(
-        targetValue = if (showStats) medTypes else 0,
-        animationSpec = tween(800, easing = FastOutSlowInEasing)
-    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -2117,132 +2459,24 @@ fun ProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             item(key = "header_profile") {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    AvatarView(
-                        avatarBitmap = avatarBitmap,
-                        size = 96.dp,
-                        showCameraBadge = true,
-                        onClick = onAvatarClick
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                editNickname = userProfile.nickname
-                                editSignature = userProfile.signature
-                                showEditProfileDialog = true
-                            }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            userProfile.nickname,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = AppColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            Icons.Filled.Edit,
-                            contentDescription = "编辑资料",
-                            tint = AppColors.Primary,
-                            modifier = Modifier.size(16.dp)
-                        )
+                ProfileHeaderCard(
+                    userProfile = userProfile,
+                    avatarBitmap = avatarBitmap,
+                    onAvatarClick = onAvatarClick,
+                    onEditProfileClick = {
+                        editNickname = userProfile.nickname
+                        editSignature = userProfile.signature
+                        showEditProfileDialog = true
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        userProfile.signature,
-                        color = AppColors.TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                )
             }
 
             item(key = "streak_card") {
-                GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .background(Color(0xFFFEF3C7), RoundedCornerShape(14.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🔥", fontSize = 24.sp)
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
-                                Text("连续服药打卡", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Text("按时记录，守护健康每一天", color = AppColors.TextSecondary, fontSize = 12.sp)
-                            }
-                        }
-                        Text(
-                            "$animStreak 天",
-                            color = Color(0xFFD97706),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 22.sp
-                        )
-                    }
-                }
+                StreakCard(streak = streak, showStats = showStats)
             }
 
             item(key = "week_adherence_card") {
-                GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("📅 近7天服药考勤", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("$animCompletedCount/7 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        weekAdherence.forEach { (dayName, isChecked) ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            if (isChecked) Color(0xFF10B981).copy(alpha = 0.25f)
-                                            else AppColors.SurfaceVariant,
-                                            CircleShape
-                                        )
-                                        .border(
-                                            1.dp,
-                                            if (isChecked) Color(0xFF10B981) else AppColors.Border,
-                                            CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isChecked) {
-                                        Icon(Icons.Filled.Check, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
-                                    } else {
-                                        Box(modifier = Modifier.size(6.dp).background(AppColors.TextTertiary, CircleShape))
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(dayName, color = AppColors.TextSecondary, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
+                WeekAdherenceCard(weekAdherence = weekAdherence, showStats = showStats)
             }
 
             item(key = "inventory_card") {
@@ -2250,208 +2484,26 @@ fun ProfileScreen(
             }
 
             item(key = "stats_card") {
-                GlassCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .clickable { onShowStatsDetail() }
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("📊 数据统计与汇总", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(AppColors.PrimaryContainer, RoundedCornerShape(12.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("查看明细", color = AppColors.Primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "查看明细", tint = AppColors.Primary, modifier = Modifier.size(14.dp))
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("$animLogsSize", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                            Text("总服药记录", color = AppColors.TextSecondary, fontSize = 12.sp)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("$animMedTypes", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                            Text("常备药品", color = AppColors.TextSecondary, fontSize = 12.sp)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val avgDoses = if (streak > 0) String.format(Locale.getDefault(), "%.1f", logs.size.toFloat() / streak.coerceAtLeast(1)) else "0"
-                            Text(avgDoses, color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                            Text("日均服药", color = AppColors.TextSecondary, fontSize = 12.sp)
-                        }
-                    }
-                }
+                OverallStatsCard(
+                    logsSize = logs.size,
+                    medTypes = medTypes,
+                    streak = streak,
+                    showStats = showStats,
+                    onShowStatsDetail = onShowStatsDetail
+                )
             }
 
-            // Theme Mode Settings Card
-            item {
-                GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .background(AppColors.PrimaryContainer, RoundedCornerShape(14.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🌓", fontSize = 22.sp)
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
-                                Text("外观与深色模式", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                val currentModeLabel = when (userProfile.themeMode) {
-                                    "dark" -> "当前为强制深色模式"
-                                    "light" -> "当前为强制浅色模式"
-                                    else -> "当前跟随手机系统"
-                                }
-                                Text(
-                                    currentModeLabel,
-                                    color = AppColors.TextSecondary,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val modes = listOf(
-                            Triple("system", "跟随系统", Icons.Filled.SettingsBrightness),
-                            Triple("light", "浅色", Icons.Filled.LightMode),
-                            Triple("dark", "深色", Icons.Filled.DarkMode)
-                        )
-                        modes.forEach { (mode, label, icon) ->
-                            val isSelected = userProfile.themeMode == mode
-                            Surface(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        if (!isSelected) {
-                                            val updated = userProfile.copy(themeMode = mode)
-                                            AppColors.themeMode = mode
-                                            onUpdateProfile(updated)
-                                        }
-                                    },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) AppColors.Primary else AppColors.Card.copy(alpha = 0.5f),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    if (isSelected) AppColors.Primary else AppColors.Border
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        icon,
-                                        contentDescription = null,
-                                        tint = if (isSelected) Color.White else AppColors.TextSecondary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        label,
-                                        color = if (isSelected) Color.White else AppColors.TextPrimary,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+            item(key = "theme_card") {
+                ThemeSettingsCard(userProfile = userProfile, onUpdateProfile = onUpdateProfile)
             }
 
-            // Custom Wallpaper Settings Card
             item(key = "wallpaper_card") {
-                GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .background(AppColors.PrimaryContainer, RoundedCornerShape(14.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("🖼️", fontSize = 22.sp)
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
-                                Text("个性化壁纸设置", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Text(
-                                    if (customBgBitmap != null) "已启用相册自定义壁纸" else "当前使用默认晨光亮色主题",
-                                    color = AppColors.TextSecondary,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = onSelectBackground,
-                            modifier = Modifier.weight(1.2f).height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
-                        ) {
-                            Icon(Icons.Filled.Image, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("从相册导入", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        if (customBgBitmap != null) {
-                            OutlinedButton(
-                                onClick = onAdjustBackground,
-                                modifier = Modifier.weight(1f).height(44.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary)
-                            ) {
-                                Text("调节效果", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = onResetBackground,
-                                modifier = Modifier.weight(0.9f).height(44.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.TextSecondary),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border)
-                            ) {
-                                Text("恢复默认", fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
+                WallpaperSettingsCard(
+                    customBgBitmap = customBgBitmap,
+                    onSelectBackground = onSelectBackground,
+                    onAdjustBackground = onAdjustBackground,
+                    onResetBackground = onResetBackground
+                )
             }
 
             // Version info footer
