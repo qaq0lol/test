@@ -38,10 +38,9 @@ class PillTrackWidgetProvider : AppWidgetProvider() {
             val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
             val todayStr = dayFormat.format(Date())
             val todayLogs = logs.filter { dayFormat.format(Date(it.time)) == todayStr }
-            val streak = LocalStorage.calculateStreak(logs)
 
-            // Update streak text
-            views.setTextViewText(R.id.widget_streak_text, "🔥 连续打卡 ${streak} 天")
+            // Update total count
+            views.setTextViewText(R.id.widget_streak_text, "累计 ${logs.size} 次")
 
             // Update today count
             views.setTextViewText(R.id.widget_today_count, "已记录 ${todayLogs.size} 次")

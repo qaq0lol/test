@@ -1210,8 +1210,8 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (isDark) Color(0xFF0F172A).copy(alpha = 0.65f) else Color(0xFFF8FAFC).copy(alpha = 0.95f))
-            .border(1.dp, if (isDark) Color(0xFF334155).copy(alpha = 0.60f) else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
+            .background(if (AppColors.themeMode == "amoled") Color(0xFF000000) else if (isDark) Color(0xFF0F172A).copy(alpha = 0.65f) else Color(0xFFF8FAFC).copy(alpha = 0.95f))
+            .border(1.dp, if (AppColors.themeMode == "amoled") Color(0xFF1F1F1F) else if (isDark) Color(0xFF334155).copy(alpha = 0.60f) else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -1269,8 +1269,8 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isDark) Color(0xFF1E293B).copy(alpha = 0.70f) else Color.White)
-                    .border(1.dp, if (isDark) Color(0xFF334155).copy(alpha = 0.40f) else Color(0xFFE2E8F0).copy(alpha = 0.80f), RoundedCornerShape(10.dp))
+                    .background(if (AppColors.themeMode == "amoled") Color(0xFF0A0A0A) else if (isDark) Color(0xFF1E293B).copy(alpha = 0.70f) else Color.White)
+                    .border(1.dp, if (AppColors.themeMode == "amoled") Color(0xFF1F1F1F) else if (isDark) Color(0xFF334155).copy(alpha = 0.40f) else Color(0xFFE2E8F0).copy(alpha = 0.80f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Row(
@@ -1307,7 +1307,7 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
+                        .background(if (AppColors.themeMode == "amoled") Color(0xFF1A1A1A) else if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
                 ) {
                     Box(
                         modifier = Modifier
@@ -2664,7 +2664,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.24 · Build 26",
+                        "版本号: v1.25 · Build 27",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )
