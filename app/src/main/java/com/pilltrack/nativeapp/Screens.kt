@@ -1675,7 +1675,7 @@ fun HistoryScreen(
             }
 
             if (grouped.isEmpty()) {
-                item {
+                item(key = "empty_history") {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Box(modifier = Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
                             Text("暂无用药记录，点击右下角【+】添加用药", color = AppColors.TextSecondary, fontSize = 13.sp)
