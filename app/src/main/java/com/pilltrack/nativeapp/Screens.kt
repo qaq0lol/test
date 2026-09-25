@@ -2695,7 +2695,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.23 · Build 25",
+                        "版本号: v1.24 · Build 26",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )

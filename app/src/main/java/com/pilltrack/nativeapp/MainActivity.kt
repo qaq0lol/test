@@ -807,7 +807,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    "v1.23",
+                    "v1.24",
                     color = AppColors.Primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
