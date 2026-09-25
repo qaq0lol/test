@@ -130,7 +130,14 @@ fun BackgroundGlow(
     val dstRect = remember { android.graphics.RectF() }
     val bmpPaint = remember { android.graphics.Paint().apply { isFilterBitmap = true } }
 
-    Canvas(modifier = Modifier.fillMaxSize()) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .androidx.compose.ui.graphics.graphicsLayer {
+                // Isolate the complex background drawing to its own render node to prevent layout scroll invalidation
+                clip = true
+            }
+    ) {
         val w = size.width
         val h = size.height
 
@@ -265,7 +272,10 @@ fun GlassCard(
 ) {
     val isDark = AppColors.isDark()
     Surface(
-        modifier = modifier,
+        modifier = modifier.androidx.compose.ui.graphics.graphicsLayer {
+            // Flatten elevation and transparency renders during scrolls
+            clip = true
+        },
         shape = shape,
         // Solid high-contrast dark surface in Dark Mode so wallpaper colors never wash out the card
         color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
@@ -371,12 +381,16 @@ fun TodayScreen(
     onAvatarClick: () -> Unit,
     onDeleteLog: (PillLog) -> Unit
 ) {
-    val todayLogs = logs.filter {
-        val cal = Calendar.getInstance()
-        val today = cal.get(Calendar.DAY_OF_YEAR)
-        val todayYear = cal.get(Calendar.YEAR)
-        cal.timeInMillis = it.time
-        cal.get(Calendar.DAY_OF_YEAR) == today && cal.get(Calendar.YEAR) == todayYear
+    val todayLogs by remember(logs) {
+        derivedStateOf {
+            val cal = Calendar.getInstance()
+            val today = cal.get(Calendar.DAY_OF_YEAR)
+            val todayYear = cal.get(Calendar.YEAR)
+            logs.filter {
+                cal.timeInMillis = it.time
+                cal.get(Calendar.DAY_OF_YEAR) == today && cal.get(Calendar.YEAR) == todayYear
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -468,28 +482,11 @@ fun TodayScreen(
             } else {
                 items(todayLogs.size, key = { todayLogs[it].id }) { index ->
                     val log = todayLogs[index]
-                    // Add staggered animation to list items
-                    var isVisible by remember { mutableStateOf(false) }
-                    LaunchedEffect(log.id) {
-                        // Cap the delay for very long lists so users aren't waiting forever
-                        val delayIndex = minOf(index, 6)
-                        kotlinx.coroutines.delay(delayIndex * 80L)
-                        isVisible = true
-                    }
-
-                    AnimatedVisibility(
-                        visible = isVisible,
-                        enter = slideInVertically(
-                            initialOffsetY = { 50 },
-                            animationSpec = spring(stiffness = Spring.StiffnessLow)
-                        ) + fadeIn(tween(400))
-                    ) {
-                        LogCard(
-                            log = log,
-                            onClick = null,
-                            onDelete = { onDeleteLog(log) }
-                        )
-                    }
+                    LogCard(
+                        log = log,
+                        onClick = null,
+                        onDelete = { onDeleteLog(log) }
+                    )
                 }
             }
         }
@@ -508,20 +505,17 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .androidx.compose.ui.graphics.graphicsLayer { clip = true }
             .clip(RoundedCornerShape(20.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(20.dp),
-        color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
+        color = if (isDark) Color(0xFF131D30) else Color.White,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            Brush.verticalGradient(
-                listOf(
-                    pillColor.copy(alpha = if (isDark) 0.65f else 0.40f),
-                    if (isDark) Color(0xFF334155).copy(alpha = 0.50f) else Color.White.copy(alpha = 0.70f)
-                )
-            )
+            if (isDark) Color(0xFF334155).copy(alpha = 0.50f) else Color(0xFFE2E8F0)
         ),
-        shadowElevation = if (isDark) 10.dp else 6.dp
+        // Deep Optimization: Drop expensive runtime shadow calculations for frequently recycled list items
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -1076,16 +1070,16 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     val rect = RectF(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + tooltipHeight)
 
                     // Glass background
-                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, Paint().apply {
+                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, android.graphics.Paint().apply {
                         color = android.graphics.Color.parseColor("#E60B0F19")
                         setShadowLayer(16f, 0f, 8f, android.graphics.Color.parseColor("#80000000"))
                         isAntiAlias = true
                     })
 
                     // Subtle border
-                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, Paint().apply {
+                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, android.graphics.Paint().apply {
                         color = android.graphics.Color.parseColor("#33FFFFFF")
-                        style = Paint.Style.STROKE
+                        style = android.graphics.Paint.Style.STROKE
                         strokeWidth = 2f
                         isAntiAlias = true
                     })
@@ -1104,7 +1098,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         tooltipY + 32.dp.toPx(),
                         tooltipX + tooltipWidth - 16.dp.toPx(),
                         tooltipY + 32.dp.toPx(),
-                        Paint().apply {
+                        android.graphics.Paint().apply {
                             color = android.graphics.Color.parseColor("#33FFFFFF")
                             strokeWidth = 2f
                             isAntiAlias = true
@@ -1619,15 +1613,20 @@ fun HistoryScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        val filteredLogs = if (searchQuery.isBlank()) {
-            logs
-        } else {
-            logs.filter { it.name.contains(searchQuery, ignoreCase = true) }
-        }
+        val grouped by remember(logs, searchQuery) {
+            derivedStateOf {
+                val filteredLogs = if (searchQuery.isBlank()) {
+                    logs
+                } else {
+                    logs.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                }
 
-        val grouped = filteredLogs.groupBy {
-            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it.time))
-        }.toSortedMap(reverseOrder())
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                filteredLogs.groupBy {
+                    sdf.format(Date(it.time))
+                }.toSortedMap(reverseOrder())
+            }
+        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -1770,8 +1769,11 @@ fun DetailScreen(
         onBack()
     }
 
-    val dayLogs = logs.filter {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it.time)) == dateStr
+    val dayLogs by remember(logs, dateStr) {
+        derivedStateOf {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            logs.filter { sdf.format(Date(it.time)) == dateStr }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -1856,28 +1858,11 @@ fun DetailScreen(
             } else {
                 items(dayLogs.size, key = { dayLogs[it].id }) { index ->
                     val log = dayLogs[index]
-                    // Add staggered animation to list items
-                    var isVisible by remember { mutableStateOf(false) }
-                    LaunchedEffect(log.id) {
-                        // Cap the delay for very long lists so users aren't waiting forever
-                        val delayIndex = minOf(index, 6)
-                        kotlinx.coroutines.delay(delayIndex * 80L)
-                        isVisible = true
-                    }
-
-                    AnimatedVisibility(
-                        visible = isVisible,
-                        enter = slideInVertically(
-                            initialOffsetY = { 50 },
-                            animationSpec = spring(stiffness = Spring.StiffnessLow)
-                        ) + fadeIn(tween(400))
-                    ) {
-                        LogCard(
-                            log = log,
-                            onClick = { editingLog = log },
-                            onDelete = { onDeleteLog(log) }
-                        )
-                    }
+                    LogCard(
+                        log = log,
+                        onClick = { editingLog = log },
+                        onDelete = { onDeleteLog(log) }
+                    )
                 }
             }
         }
