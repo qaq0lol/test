@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -133,7 +134,7 @@ fun BackgroundGlow(
     Canvas(
         modifier = Modifier
             .fillMaxSize()
-            .androidx.compose.ui.graphics.graphicsLayer {
+            .graphicsLayer {
                 // Isolate the complex background drawing to its own render node to prevent layout scroll invalidation
                 clip = true
             }
@@ -272,7 +273,7 @@ fun GlassCard(
 ) {
     val isDark = AppColors.isDark()
     Surface(
-        modifier = modifier.androidx.compose.ui.graphics.graphicsLayer {
+        modifier = modifier.graphicsLayer {
             // Flatten elevation and transparency renders during scrolls
             clip = true
         },
@@ -381,15 +382,13 @@ fun TodayScreen(
     onAvatarClick: () -> Unit,
     onDeleteLog: (PillLog) -> Unit
 ) {
-    val todayLogs by remember(logs) {
-        derivedStateOf {
-            val cal = Calendar.getInstance()
-            val today = cal.get(Calendar.DAY_OF_YEAR)
-            val todayYear = cal.get(Calendar.YEAR)
-            logs.filter {
-                cal.timeInMillis = it.time
-                cal.get(Calendar.DAY_OF_YEAR) == today && cal.get(Calendar.YEAR) == todayYear
-            }
+    val todayLogs = remember(logs) {
+        val cal = Calendar.getInstance()
+        val today = cal.get(Calendar.DAY_OF_YEAR)
+        val todayYear = cal.get(Calendar.YEAR)
+        logs.filter {
+            cal.timeInMillis = it.time
+            cal.get(Calendar.DAY_OF_YEAR) == today && cal.get(Calendar.YEAR) == todayYear
         }
     }
 
@@ -505,7 +504,7 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .androidx.compose.ui.graphics.graphicsLayer { clip = true }
+            .graphicsLayer { clip = true }
             .clip(RoundedCornerShape(20.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(20.dp),
@@ -1184,6 +1183,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
 fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier = Modifier) {
     if (logs.isEmpty()) return
 
+    val isDark = AppColors.isDark()
     val currentTime = remember { System.currentTimeMillis() }
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
@@ -1198,8 +1198,8 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF0F172A).copy(alpha = 0.55f))
-            .border(1.dp, Color(0xFF334155).copy(alpha = 0.60f), RoundedCornerShape(14.dp))
+            .background(if (isDark) Color(0xFF0F172A).copy(alpha = 0.65f) else Color(0xFFF8FAFC).copy(alpha = 0.95f))
+            .border(1.dp, if (isDark) Color(0xFF334155).copy(alpha = 0.60f) else Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -1257,7 +1257,8 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF1E293B).copy(alpha = 0.60f))
+                    .background(if (isDark) Color(0xFF1E293B).copy(alpha = 0.70f) else Color.White)
+                    .border(1.dp, if (isDark) Color(0xFF334155).copy(alpha = 0.40f) else Color(0xFFE2E8F0).copy(alpha = 0.80f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Row(
@@ -1267,7 +1268,7 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                 ) {
                     Text(
                         "${log.name} (${log.dose})",
-                        color = Color.White,
+                        color = AppColors.TextPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1294,7 +1295,7 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF334155))
+                        .background(if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
                 ) {
                     Box(
                         modifier = Modifier
@@ -1316,7 +1317,7 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                 ) {
                     Text(
                         if (remainingMillis > 0) "预计 ${clearanceTimeStr} 代谢完成" else "已于 ${clearanceTimeStr} 代谢完成",
-                        color = Color(0xFF94A3B8),
+                        color = AppColors.TextSecondary,
                         fontSize = 10.sp
                     )
                     Text(
@@ -1613,19 +1614,17 @@ fun HistoryScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        val grouped by remember(logs, searchQuery) {
-            derivedStateOf {
-                val filteredLogs = if (searchQuery.isBlank()) {
-                    logs
-                } else {
-                    logs.filter { it.name.contains(searchQuery, ignoreCase = true) }
-                }
-
-                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                filteredLogs.groupBy {
-                    sdf.format(Date(it.time))
-                }.toSortedMap(reverseOrder())
+        val grouped = remember(logs, searchQuery) {
+            val filteredLogs = if (searchQuery.isBlank()) {
+                logs
+            } else {
+                logs.filter { it.name.contains(searchQuery, ignoreCase = true) }
             }
+
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            filteredLogs.groupBy {
+                sdf.format(Date(it.time))
+            }.toSortedMap(reverseOrder())
         }
 
         LazyColumn(
@@ -1769,11 +1768,9 @@ fun DetailScreen(
         onBack()
     }
 
-    val dayLogs by remember(logs, dateStr) {
-        derivedStateOf {
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            logs.filter { sdf.format(Date(it.time)) == dateStr }
-        }
+    val dayLogs = remember(logs, dateStr) {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        logs.filter { sdf.format(Date(it.time)) == dateStr }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -2698,7 +2695,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.22 · Build 24",
+                        "版本号: v1.23 · Build 25",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )
