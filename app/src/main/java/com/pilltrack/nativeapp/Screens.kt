@@ -44,7 +44,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -60,7 +62,7 @@ object AppColors {
 
     @Composable
     fun isDark(): Boolean = when (themeMode) {
-        "dark" -> true
+        "dark", "amoled" -> true
         "light" -> false
         else -> isSystemInDarkTheme()
     }
@@ -68,10 +70,10 @@ object AppColors {
     val TextPrimary @Composable get() = if (isDark()) Color(0xFFF1F5F9) else Color(0xFF0F172A)
     val TextSecondary @Composable get() = if (isDark()) Color(0xFF94A3B8) else Color(0xFF64748B)
     val TextTertiary @Composable get() = if (isDark()) Color(0xFF64748B) else Color(0xFF94A3B8)
-    val Background @Composable get() = if (isDark()) Color(0xFF0B0F19) else Color(0xFFF8FAFC)
-    val Border @Composable get() = if (isDark()) Color(0xFF334155) else Color(0xFFE2E8F0)
-    val SurfaceVariant @Composable get() = if (isDark()) Color(0xFF1E293B) else Color(0xFFF1F5F9)
-    val Card @Composable get() = if (isDark()) Color(0xFF1E293B) else Color.White
+    val Background @Composable get() = if (themeMode == "amoled") Color(0xFF000000) else if (isDark()) Color(0xFF0B0F19) else Color(0xFFF8FAFC)
+    val Border @Composable get() = if (themeMode == "amoled") Color(0xFF1F1F1F) else if (isDark()) Color(0xFF334155) else Color(0xFFE2E8F0)
+    val SurfaceVariant @Composable get() = if (themeMode == "amoled") Color(0xFF121212) else if (isDark()) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+    val Card @Composable get() = if (themeMode == "amoled") Color(0xFF0A0A0A) else if (isDark()) Color(0xFF1E293B) else Color.White
     val Primary @Composable get() = if (isDark()) Color(0xFF3B82F6) else Color(0xFF2563EB)
     val PrimaryContainer @Composable get() = if (isDark()) Color(0xFF1E3A8A) else Color(0xFFEFF6FF)
 }
@@ -142,7 +144,7 @@ fun BackgroundGlow(
         val h = size.height
 
         // Always draw solid base background color first to prevent any transparency leaking through to window
-        val baseColor = if (isDark) Color(0xFF0B0F19) else Color(0xFFF8FAFC)
+        val baseColor = if (AppColors.themeMode == "amoled") Color(0xFF000000) else if (isDark) Color(0xFF0B0F19) else Color(0xFFF8FAFC)
         drawRect(color = baseColor)
 
         if (customBitmap != null) {
@@ -171,95 +173,101 @@ fun BackgroundGlow(
 
             if (isDark) {
                 // Dim custom wallpaper in Dark Mode for immersive, readable contrast (78% opacity)
-                drawRect(color = Color(0xFF0B0F19).copy(alpha = 0.78f))
+                val dimColor = if (AppColors.themeMode == "amoled") Color(0xFF000000).copy(alpha = 0.85f) else Color(0xFF0B0F19).copy(alpha = 0.78f)
+                drawRect(color = dimColor)
             }
         } else {
-            if (isDark) {
-                // Deep dark midnight cosmic base
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF0B0F19),
-                            Color(0xFF0F172A),
-                            Color(0xFF1E293B)
+            if (AppColors.themeMode == "amoled") {
+                // Pure black for OLED, no blobs to save maximum battery
+                drawRect(color = Color(0xFF000000))
+            } else {
+                if (isDark) {
+                    // Deep dark midnight cosmic base
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF0B0F19),
+                                Color(0xFF0F172A),
+                                Color(0xFF1E293B)
+                            )
                         )
                     )
-                )
-            } else {
-                // Fresh, bright, energizing morning porcelain base
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFF8FAFC),
-                            Color(0xFFF1F5F9),
-                            Color(0xFFEFF6FF)
+                } else {
+                    // Fresh, bright, energizing morning porcelain base
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFF8FAFC),
+                                Color(0xFFF1F5F9),
+                                Color(0xFFEFF6FF)
+                            )
                         )
+                    )
+                }
+
+                // Blob 1: Soft Sky Blue (Top-Left floating)
+                val x1 = w * (0.08f + 0.16f * animOffset1)
+                val y1 = h * (0.16f + 0.12f * (1f - animOffset2))
+                val r1 = w * 0.85f * animScale
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF38BDF8).copy(alpha = 0.35f),
+                            Color(0xFF60A5FA).copy(alpha = 0.15f),
+                            Color.Transparent
+                        ),
+                        center = Offset(x1, y1),
+                        radius = r1
+                    ),
+                    radius = r1,
+                    center = Offset(x1, y1)
+                )
+
+                // Blob 2: Pastel Lavender Violet (Mid-Right drifting)
+                val x2 = w * (0.88f - 0.18f * animOffset2)
+                val y2 = h * (0.45f + 0.15f * animOffset1)
+                val r2 = w * 0.88f * (2f - animScale)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFA78BFA).copy(alpha = 0.30f),
+                            Color(0xFFC084FC).copy(alpha = 0.12f),
+                            Color.Transparent
+                        ),
+                        center = Offset(x2, y2),
+                        radius = r2
+                    ),
+                    radius = r2,
+                    center = Offset(x2, y2)
+                )
+
+                // Blob 3: Soft Blossom Peach Pink (Bottom-Center warm glow)
+                val x3 = w * (0.40f + 0.25f * animOffset2)
+                val y3 = h * (0.85f - 0.12f * animOffset1)
+                val r3 = w * 0.80f * animScale
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFB7185).copy(alpha = 0.25f),
+                            Color(0xFFF472B6).copy(alpha = 0.10f),
+                            Color.Transparent
+                        ),
+                        center = Offset(x3, y3),
+                        radius = r3
+                    ),
+                    radius = r3,
+                    center = Offset(x3, y3)
+                )
+
+                // Gentle soft vignette
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.Transparent, Color(0xFF94A3B8).copy(alpha = 0.15f)),
+                        center = Offset(w * 0.5f, h * 0.5f),
+                        radius = w * 0.95f
                     )
                 )
             }
-
-            // Blob 1: Soft Sky Blue (Top-Left floating)
-            val x1 = w * (0.08f + 0.16f * animOffset1)
-            val y1 = h * (0.16f + 0.12f * (1f - animOffset2))
-            val r1 = w * 0.85f * animScale
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF38BDF8).copy(alpha = 0.35f),
-                        Color(0xFF60A5FA).copy(alpha = 0.15f),
-                        Color.Transparent
-                    ),
-                    center = Offset(x1, y1),
-                    radius = r1
-                ),
-                radius = r1,
-                center = Offset(x1, y1)
-            )
-
-            // Blob 2: Pastel Lavender Violet (Mid-Right drifting)
-            val x2 = w * (0.88f - 0.18f * animOffset2)
-            val y2 = h * (0.45f + 0.15f * animOffset1)
-            val r2 = w * 0.88f * (2f - animScale)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFA78BFA).copy(alpha = 0.30f),
-                        Color(0xFFC084FC).copy(alpha = 0.12f),
-                        Color.Transparent
-                    ),
-                    center = Offset(x2, y2),
-                    radius = r2
-                ),
-                radius = r2,
-                center = Offset(x2, y2)
-            )
-
-            // Blob 3: Soft Blossom Peach Pink (Bottom-Center warm glow)
-            val x3 = w * (0.40f + 0.25f * animOffset2)
-            val y3 = h * (0.85f - 0.12f * animOffset1)
-            val r3 = w * 0.80f * animScale
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFFB7185).copy(alpha = 0.25f),
-                        Color(0xFFF472B6).copy(alpha = 0.10f),
-                        Color.Transparent
-                    ),
-                    center = Offset(x3, y3),
-                    radius = r3
-                ),
-                radius = r3,
-                center = Offset(x3, y3)
-            )
-
-            // Gentle soft vignette
-            drawRect(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.Transparent, Color(0xFF94A3B8).copy(alpha = 0.15f)),
-                    center = Offset(w * 0.5f, h * 0.5f),
-                    radius = w * 0.95f
-                )
-            )
         }
     }
 }
@@ -475,7 +483,7 @@ fun TodayScreen(
                     }
                 }
             } else {
-                items(todayLogs.size, key = { todayLogs[it].id }) { index ->
+                items(todayLogs.size, key = { todayLogs[it].id }, contentType = { "LogCard" }) { index ->
                     val log = todayLogs[index]
                     LogCard(
                         log = log,
@@ -490,6 +498,7 @@ fun TodayScreen(
 
 @Composable
 fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
     val pillColor = try {
         Color(android.graphics.Color.parseColor(log.color))
     } catch (e: Exception) {
@@ -631,7 +640,10 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
                     modifier = Modifier
                         .size(20.dp)
                         .clip(CircleShape)
-                        .clickable { onDelete() }
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onDelete()
+                        }
                 )
             }
         }
@@ -1110,7 +1122,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                items(distinctDrugs.entries.toList(), key = { it.key }) { entry ->
+                items(distinctDrugs.entries.toList(), key = { it.key }, contentType = { "DrugLegend" }) { entry ->
                     val drugName = entry.key
                     val colorHex = entry.value.first().color
                     val color = try {
@@ -1322,7 +1334,7 @@ fun EditLogSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(COLOR_OPTIONS, key = { it.first }) { (hex, _) ->
+                    items(COLOR_OPTIONS, key = { it.first }, contentType = { "ColorOption" }) { (hex, _) ->
                         val c = Color(android.graphics.Color.parseColor(hex))
                         val isSelected = selectedColor.equals(hex, ignoreCase = true)
                         Box(
@@ -1603,13 +1615,18 @@ fun DetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val haptic = LocalHapticFeedback.current
                         Icon(
                             Icons.Filled.KeyboardArrowLeft,
                             contentDescription = "Back",
                             tint = Color(0xFF3B82F6),
                             modifier = Modifier
                                 .size(36.dp)
-                                .pointerInput(Unit) { detectTapGestures { onBack() } }
+                                .clip(CircleShape)
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onBack()
+                                }
                                 .padding(end = 8.dp)
                         )
                         Text(
@@ -1665,7 +1682,7 @@ fun DetailScreen(
                     }
                 }
             } else {
-                items(dayLogs.size, key = { dayLogs[it].id }) { index ->
+                items(dayLogs.size, key = { dayLogs[it].id }, contentType = { "LogCard" }) { index ->
                     val log = dayLogs[index]
                     LogCard(
                         log = log,
@@ -1696,7 +1713,6 @@ fun DetailScreen(
 @Composable
 fun StatsDetailSheet(
     logs: List<PillLog>,
-    streak: Int,
     onDismiss: () -> Unit
 ) {
     val totalDoses = logs.size
@@ -1720,10 +1736,6 @@ fun StatsDetailSheet(
     )
     val animDistinctDrugCount by animateIntAsState(
         targetValue = if (showStats) distinctDrugCount else 0,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
-    )
-    val animStreak by animateIntAsState(
-        targetValue = if (showStats) streak else 0,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
     )
 
@@ -1840,10 +1852,6 @@ fun StatsDetailSheet(
                                     Text("$animDistinctDrugCount", color = Color(0xFF7C3AED), fontSize = 20.sp, fontWeight = FontWeight.Black)
                                     Text("记录药种", color = AppColors.TextSecondary, fontSize = 11.sp)
                                 }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("$animStreak 天", color = Color(0xFFD97706), fontSize = 20.sp, fontWeight = FontWeight.Black)
-                                    Text("连续打卡", color = AppColors.TextSecondary, fontSize = 11.sp)
-                                }
                             }
                         }
                     }
@@ -1868,7 +1876,7 @@ fun StatsDetailSheet(
                         }
                     } else {
                         val sortedDrugs = drugGroups.entries.sortedByDescending { it.value.size }
-                        items(sortedDrugs.size, key = { sortedDrugs[it].key }) { index ->
+                        items(sortedDrugs.size, key = { sortedDrugs[it].key }, contentType = { "DrugStatCard" }) { index ->
                             val entry = sortedDrugs[index]
                             val drugName = entry.key
                             val medLogs = entry.value
@@ -2052,6 +2060,7 @@ fun ProfileHeaderCard(
     onAvatarClick: () -> Unit,
     onEditProfileClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -2060,7 +2069,10 @@ fun ProfileHeaderCard(
             avatarBitmap = avatarBitmap,
             size = 96.dp,
             showCameraBadge = true,
-            onClick = onAvatarClick
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onAvatarClick()
+            }
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -2069,7 +2081,10 @@ fun ProfileHeaderCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .clickable { onEditProfileClick() }
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onEditProfileClick()
+                }
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
@@ -2093,43 +2108,6 @@ fun ProfileHeaderCard(
             color = AppColors.TextSecondary,
             style = MaterialTheme.typography.bodyMedium
         )
-    }
-}
-
-@Composable
-fun StreakCard(streak: Int, showStats: Boolean) {
-    val animStreak by animateIntAsState(
-        targetValue = if (showStats) streak else 0,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
-    )
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .background(Color(0xFFFEF3C7), RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🔥", fontSize = 24.sp)
-                }
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text("连续服药打卡", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("按时记录，守护健康每一天", color = AppColors.TextSecondary, fontSize = 12.sp)
-                }
-            }
-            Text(
-                "$animStreak 天",
-                color = Color(0xFFD97706),
-                fontWeight = FontWeight.Black,
-                fontSize = 22.sp
-            )
-        }
     }
 }
 
@@ -2188,7 +2166,7 @@ fun WeekAdherenceCard(weekAdherence: List<Pair<String, Boolean>>, showStats: Boo
 }
 
 @Composable
-fun OverallStatsCard(logsSize: Int, medTypes: Int, streak: Int, showStats: Boolean, onShowStatsDetail: () -> Unit) {
+fun OverallStatsCard(logsSize: Int, medTypes: Int, showStats: Boolean, onShowStatsDetail: () -> Unit) {
     val animLogsSize by animateIntAsState(
         targetValue = if (showStats) logsSize else 0,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
@@ -2231,11 +2209,6 @@ fun OverallStatsCard(logsSize: Int, medTypes: Int, streak: Int, showStats: Boole
                 Text("$animMedTypes", color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 Text("常备药品", color = AppColors.TextSecondary, fontSize = 12.sp)
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val avgDoses = if (streak > 0) String.format(Locale.getDefault(), "%.1f", logsSize.toFloat() / streak.coerceAtLeast(1)) else "0"
-                Text(avgDoses, color = AppColors.TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                Text("日均服药", color = AppColors.TextSecondary, fontSize = 12.sp)
-            }
         }
     }
 }
@@ -2262,6 +2235,7 @@ fun ThemeSettingsCard(userProfile: UserProfile, onUpdateProfile: (UserProfile) -
                     Text("外观与深色模式", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     val currentModeLabel = when (userProfile.themeMode) {
                         "dark" -> "当前为强制深色模式"
+                        "amoled" -> "当前为AMOLED纯黑模式"
                         "light" -> "当前为强制浅色模式"
                         else -> "当前跟随手机系统"
                     }
@@ -2281,9 +2255,10 @@ fun ThemeSettingsCard(userProfile: UserProfile, onUpdateProfile: (UserProfile) -
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val modes = listOf(
-                Triple("system", "跟随系统", Icons.Filled.SettingsBrightness),
+                Triple("system", "跟随", Icons.Filled.SettingsBrightness),
                 Triple("light", "浅色", Icons.Filled.LightMode),
-                Triple("dark", "深色", Icons.Filled.DarkMode)
+                Triple("dark", "深色", Icons.Filled.DarkMode),
+                Triple("amoled", "纯黑", Icons.Filled.Nightlight)
             )
             modes.forEach { (mode, label, icon) ->
                 val isSelected = userProfile.themeMode == mode
@@ -2424,7 +2399,6 @@ fun ProfileScreen(
     var editNickname by remember { mutableStateOf(userProfile.nickname) }
     var editSignature by remember { mutableStateOf(userProfile.signature) }
 
-    val streak = remember(logs) { LocalStorage.calculateStreak(logs) }
     val weekAdherence = remember(logs) { LocalStorage.getWeekAdherence(logs) }
     val medTypes = remember(logs) { logs.map { it.name }.distinct().size }
 
@@ -2456,10 +2430,6 @@ fun ProfileScreen(
                 )
             }
 
-            item(key = "streak_card") {
-                StreakCard(streak = streak, showStats = showStats)
-            }
-
             item(key = "week_adherence_card") {
                 WeekAdherenceCard(weekAdherence = weekAdherence, showStats = showStats)
             }
@@ -2472,7 +2442,6 @@ fun ProfileScreen(
                 OverallStatsCard(
                     logsSize = logs.size,
                     medTypes = medTypes,
-                    streak = streak,
                     showStats = showStats,
                     onShowStatsDetail = onShowStatsDetail
                 )
@@ -2555,8 +2524,10 @@ fun ProfileScreen(
                     }
                 },
                 confirmButton = {
+                    val haptic = LocalHapticFeedback.current
                     Button(
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             val updated = userProfile.copy(
                                 nickname = editNickname.ifBlank { userProfile.nickname },
                                 signature = editSignature.ifBlank { userProfile.signature }
@@ -2587,6 +2558,7 @@ fun AddLogSheet(
     onSave: (name: String, dose: String, stomach: String, timeMillis: Long, colorHex: String) -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     var medName by remember { mutableStateOf("") }
     var doseStr by remember { mutableStateOf("") }
     var stomachState by remember { mutableStateOf("empty") }
@@ -2600,13 +2572,21 @@ fun AddLogSheet(
 
     var customDrugs by remember { mutableStateOf(LocalStorage.loadCustomDrugs(context)) }
     var isManagingDrugs by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(toastMessage) {
+        if (toastMessage != null) {
+            kotlinx.coroutines.delay(2000L)
+            toastMessage = null
+        }
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp)
-            .padding(bottom = 24.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .padding(bottom = 24.dp)
+        ) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
@@ -2639,7 +2619,8 @@ fun AddLogSheet(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(customDrugs) { (dName, dDose, dStomach) ->
+            items(customDrugs.size, contentType = { "CustomDrug" }) { index ->
+                val (dName, dDose, dStomach) = customDrugs[index]
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFEFF6FF),
@@ -2690,11 +2671,12 @@ fun AddLogSheet(
                                         LocalStorage.saveCustomDrugs(context, newDrugs)
                                         medName = ""
                                         doseStr = ""
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     } else {
-                                        android.widget.Toast.makeText(context, "该药品已存在", android.widget.Toast.LENGTH_SHORT).show()
+                                        toastMessage = "该药品已存在"
                                     }
                                 } else {
-                                    android.widget.Toast.makeText(context, "请先在下方输入框填写药物名称和剂量", android.widget.Toast.LENGTH_SHORT).show()
+                                    toastMessage = "请先在下方输入框填写药物名称和剂量"
                                 }
                             }
                     ) {
@@ -2836,7 +2818,7 @@ fun AddLogSheet(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(COLOR_OPTIONS, key = { it.first }) { (hex, _) ->
+            items(COLOR_OPTIONS, key = { it.first }, contentType = { "ColorOption" }) { (hex, _) ->
                 val c = Color(android.graphics.Color.parseColor(hex))
                 val isSelected = selectedColor.equals(hex, ignoreCase = true)
                 Box(
@@ -2906,7 +2888,10 @@ fun AddLogSheet(
                 onClick = {
                     if (medName.isNotBlank()) {
                         isSearching = true
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onSave(medName, doseStr, stomachState, recordTimeMillis, selectedColor)
+                    } else {
+                        toastMessage = "药物名称不能为空"
                     }
                 },
                 modifier = Modifier.weight(1.8f).height(52.dp),
@@ -2914,6 +2899,28 @@ fun AddLogSheet(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(if (isSearching) "查询中..." else "确认记录", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+        }
+
+        // Custom Compose Toast/Snackbar
+        AnimatedVisibility(
+            visible = toastMessage != null,
+            enter = slideInVertically(initialOffsetY = { 50 }, animationSpec = spring(stiffness = Spring.StiffnessLow)) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { 50 }, animationSpec = tween(250)) + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 90.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF1E293B).copy(alpha = 0.9f),
+                shadowElevation = 8.dp
+            ) {
+                Text(
+                    text = toastMessage ?: "",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
             }
         }
     }
