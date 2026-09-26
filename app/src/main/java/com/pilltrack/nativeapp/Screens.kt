@@ -306,7 +306,7 @@ fun GlassCard(
                 )
             )
         ),
-        shadowElevation = if (isDark) 12.dp else 6.dp
+        shadowElevation = if (isDark) 12.dp else 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -878,7 +878,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                 }
 
                 val drugGroups = logs.groupBy { it.name }
-                val numPoints = 160
+                val numPoints = 400
                 val curTouchX = touchX
                 val curvesList = mutableListOf<DrugCurveData>()
 
@@ -990,9 +990,9 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         // Draw path shadow (glow)
                         drawPath(
                             path = path,
-                            color = drugColor.copy(alpha = 0.3f),
+                            color = drugColor.copy(alpha = 0.15f),
                             style = Stroke(
-                                width = 16.0f,
+                                width = 8.0f,
                                 cap = androidx.compose.ui.graphics.StrokeCap.Round,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
@@ -1002,7 +1002,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                             path = path,
                             color = drugColor,
                             style = Stroke(
-                                width = 6.0f,
+                                width = 3.5f,
                                 cap = androidx.compose.ui.graphics.StrokeCap.Round,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
@@ -2316,8 +2316,9 @@ fun ProfileHeaderCard(
 }
 
 @Composable
-fun WeekAdherenceCard(weekAdherence: List<Pair<String, Boolean>>, showStats: Boolean) {
-    val completedCount = remember(weekAdherence) { weekAdherence.count { it.second } }
+fun MonthAdherenceCard(monthAdherence: List<Pair<Int, Boolean>>, showStats: Boolean) {
+    val completedCount = remember(monthAdherence) { monthAdherence.count { it.second } }
+    val daysInMonth = monthAdherence.size
     val animCompletedCount by animateIntAsState(
         targetValue = if (showStats) completedCount else 0,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
@@ -2328,42 +2329,57 @@ fun WeekAdherenceCard(weekAdherence: List<Pair<String, Boolean>>, showStats: Boo
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("📅 近7天服药考勤", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Text("$animCompletedCount/7 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("📅 本月用药统计", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text("$animCompletedCount/$daysInMonth 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            weekAdherence.forEach { (dayName, isChecked) ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(
-                                if (isChecked) Color(0xFF10B981).copy(alpha = 0.25f)
-                                else AppColors.SurfaceVariant,
-                                CircleShape
-                            )
-                            .border(
-                                1.dp,
-                                if (isChecked) Color(0xFF10B981) else AppColors.Border,
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isChecked) {
-                            Icon(Icons.Filled.Check, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+        val columns = 7
+        val rows = (monthAdherence.size + columns - 1) / columns
+        Column(modifier = Modifier.fillMaxWidth()) {
+            for (r in 0 until rows) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    for (c in 0 until columns) {
+                        val index = r * columns + c
+                        if (index < monthAdherence.size) {
+                            val (day, isChecked) = monthAdherence[index]
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .background(
+                                            if (isChecked) Color(0xFF10B981).copy(alpha = 0.25f)
+                                            else AppColors.SurfaceVariant,
+                                            CircleShape
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isChecked) Color(0xFF10B981) else AppColors.Border,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isChecked) {
+                                        Text(day.toString(), color = Color(0xFF10B981), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    } else {
+                                        Text(day.toString(), color = AppColors.TextTertiary, fontSize = 12.sp)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                            }
                         } else {
-                            Box(modifier = Modifier.size(6.dp).background(AppColors.TextTertiary, CircleShape))
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(dayName, color = AppColors.TextSecondary, fontSize = 11.sp)
                 }
+                if (r < rows - 1) Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -2603,7 +2619,7 @@ fun ProfileScreen(
     var editNickname by remember { mutableStateOf(userProfile.nickname) }
     var editSignature by remember { mutableStateOf(userProfile.signature) }
 
-    val weekAdherence = remember(logs) { LocalStorage.getWeekAdherence(logs) }
+    val monthAdherence = remember(logs) { LocalStorage.getMonthAdherence(logs) }
     val medTypes = remember(logs) { logs.map { it.name }.distinct().size }
 
     // Use a spring physics animation trigger so it doesn't drop frames during quick scrolling
@@ -2634,8 +2650,8 @@ fun ProfileScreen(
                 )
             }
 
-            item(key = "week_adherence_card") {
-                WeekAdherenceCard(weekAdherence = weekAdherence, showStats = showStats)
+            item(key = "month_adherence_card") {
+                MonthAdherenceCard(monthAdherence = monthAdherence, showStats = showStats)
             }
 
             item(key = "inventory_card") {
@@ -2680,7 +2696,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.27 · Build 29",
+                        "版本号: v1.28 · Build 30",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )
