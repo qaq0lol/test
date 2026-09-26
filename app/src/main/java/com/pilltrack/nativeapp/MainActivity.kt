@@ -446,43 +446,17 @@ fun PillTrackApp() {
                             .fillMaxWidth(0.88f)
                             .height(72.dp),
                         shape = RoundedCornerShape(36.dp),
-                        color = if (isDarkNav) Color(0xFF0F172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f),
+                        color = if (isDarkNav) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.85f),
                         contentColor = AppColors.TextPrimary,
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (isDarkNav) Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.35f),
-                                    Color.White.copy(alpha = 0.05f)
-                                )
-                            ) else Brush.linearGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.9f),
-                                    Color.White.copy(alpha = 0.2f),
-                                    Color.White.copy(alpha = 0.7f)
-                                )
-                            )
+                            if (isDarkNav) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.8f)
                         ),
-                        shadowElevation = if (isDarkNav) 0.dp else 24.dp
+                        shadowElevation = if (isDarkNav) 0.dp else 16.dp
                     ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    if (isDarkNav) Brush.verticalGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = 0.12f),
-                                            Color.Transparent,
-                                            Color.Black.copy(alpha = 0.5f)
-                                        )
-                                    ) else Brush.verticalGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = 0.65f),
-                                            Color.White.copy(alpha = 0.25f),
-                                            Color.White.copy(alpha = 0.55f)
-                                        )
-                                    )
-                                ),
+                                .fillMaxSize(),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {

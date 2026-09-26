@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -53,6 +52,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -292,43 +296,15 @@ fun GlassCard(
         },
         shape = shape,
         // Highly transparent base for strong glass effect
-        color = if (isDark) Color(0xFF0B1120).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.50f),
+        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.85f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = 0.25f),
-                    Color.White.copy(alpha = 0.05f),
-                    Color.White.copy(alpha = 0.10f)
-                )
-            ) else Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = 0.95f),
-                    Color.White.copy(alpha = 0.25f),
-                    Color.White.copy(alpha = 0.65f)
-                )
-            )
+            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.8f)
         ),
         shadowElevation = if (isDark) 4.dp else 16.dp
     ) {
         Column(
-            modifier = Modifier
-                .background(
-                    if (isDark) Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.08f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.3f)
-                        )
-                    ) else Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.70f),
-                            Color.White.copy(alpha = 0.20f),
-                            Color.White.copy(alpha = 0.50f)
-                        )
-                    )
-                )
-                .padding(18.dp),
+            modifier = Modifier.padding(18.dp),
             content = content
         )
     }
@@ -526,40 +502,15 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
             .clip(RoundedCornerShape(24.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(24.dp),
-        color = if (isDark) Color(0xFF0F172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f),
+        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.85f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = 0.25f),
-                    Color.White.copy(alpha = 0.05f)
-                )
-            ) else Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = 0.9f),
-                    Color.White.copy(alpha = 0.3f)
-                )
-            )
+            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.8f)
         ),
         shadowElevation = if (isDark) 0.dp else 10.dp
     ) {
         Row(
             modifier = Modifier
-                .background(
-                    if (isDark) Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.08f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.4f)
-                        )
-                    ) else Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.65f),
-                            Color.White.copy(alpha = 0.15f),
-                            pillColor.copy(alpha = 0.08f)
-                        )
-                    )
-                )
                 .padding(16.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -687,8 +638,10 @@ data class DrugCurveData(
 @Composable
 fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
     var touchX by remember { mutableStateOf<Float?>(null) }
-        var chartScale by remember { mutableStateOf(1f) }
-        var chartOffsetX by remember { mutableStateOf(0f) }
+
+    // Zoom/Pan states
+    var scaleX by remember { mutableStateOf(1f) }
+    var offsetX by remember { mutableStateOf(0f) }
 
     // Animation states
     val drawProgress = remember { Animatable(0f) }
@@ -756,37 +709,68 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
 
         val sqPaint = remember { Paint().apply { style = Paint.Style.FILL; isAntiAlias = true } }
 
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = chartScale,
-                            scaleY = chartScale,
-                            translationX = chartOffsetX,
-                            transformOrigin = TransformOrigin(0f, 0.5f)
-                        )
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = { offset ->
-                                    touchX = offset.x
-                                    tryAwaitRelease()
-                                },
-                                onTap = { offset ->
-                                    touchX = offset.x
+        // Screen width for gesture calculation
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clipToBounds()
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var zoomStarted = false
+                        var dragStarted = false
+
+                        if (down.pressed) {
+                            touchX = down.position.x
+                        }
+
+                        do {
+                            val event = awaitPointerEvent()
+                            val pointers = event.changes
+                            val activePointers = pointers.filter { it.pressed }
+
+                            if (activePointers.size >= 2) {
+                                // Pinch to zoom logic
+                                zoomStarted = true
+                                touchX = null // Hide indicator while zooming
+
+                                val zoom = event.calculateZoom()
+                                val pan = event.calculatePan()
+
+                                val oldScale = scaleX
+                                scaleX = (scaleX * zoom).coerceIn(1f, 10f)
+
+                                val center = screenWidthPx / 2f
+                                offsetX = (offsetX + center) * (scaleX / oldScale) - center
+                                offsetX -= pan.x
+
+                                val maxOffset = screenWidthPx * (scaleX - 1f)
+                                offsetX = offsetX.coerceIn(0f, maxOffset)
+
+                                // Consume multi-touch to prevent external scrolling
+                                pointers.forEach { it.consume() }
+                            } else if (activePointers.size == 1 && !zoomStarted) {
+                                // Single touch drag logic for tooltips
+                                dragStarted = true
+                                if (scaleX == 1f) {
+                                    touchX = activePointers.first().position.x
                                 }
-                            )
-                        }
-                        .pointerInput(Unit) {
-                            detectTransformGestures { centroid, pan, zoom, rotation ->
-                                chartScale = (chartScale * zoom).coerceIn(1f, 5f)
-                                chartOffsetX = (chartOffsetX + pan.x * chartScale).coerceIn(-size.width * (chartScale - 1f), 0f)
                             }
-                        }
-                ) {
+                        } while (activePointers.isNotEmpty())
+                    }
+                }
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
                     val w = size.width
                     val h = size.height
                     val chartBottom = h - 24.dp.toPx()
+
+                    // Map current touchX (screen space) to local chart space taking zoom into account
+                    val localTouchX = touchX?.let { (it + offsetX) / scaleX }
 
                     // Baseline
                     drawLine(
@@ -891,13 +875,19 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         }
                         prefix + String.format(Locale.getDefault(), "%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
                     }
+
+                drawContext.canvas.nativeCanvas.save()
+
                 labels.forEachIndexed { index, text ->
-                    val x = (index.toFloat() / (labels.size - 1)) * (w - 20.dp.toPx()) + 10.dp.toPx()
-                    drawContext.canvas.nativeCanvas.save()
-                    drawContext.canvas.nativeCanvas.translate(x - 8.dp.toPx(), h - 2.dp.toPx())
-                    drawContext.canvas.nativeCanvas.rotate(-18f)
-                    drawContext.canvas.nativeCanvas.drawText(text, 0f, 0f, labelPaint)
-                    drawContext.canvas.nativeCanvas.restore()
+                    val x = ((index.toFloat() / (labels.size - 1)) * (w - 20.dp.toPx()) + 10.dp.toPx()) * scaleX - offsetX
+                    // Only draw labels that are within the visible screen bounds
+                    if (x > -50f && x < w + 50f) {
+                        drawContext.canvas.nativeCanvas.save()
+                        drawContext.canvas.nativeCanvas.translate(x - 8.dp.toPx(), h - 2.dp.toPx())
+                        drawContext.canvas.nativeCanvas.rotate(-18f)
+                        drawContext.canvas.nativeCanvas.drawText(text, 0f, 0f, labelPaint)
+                        drawContext.canvas.nativeCanvas.restore()
+                    }
                 }
 
                 val drugGroups = logs.groupBy { it.name }
@@ -962,11 +952,9 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     var prevY = 0f
 
                     for (i in 0..pointsToDraw) {
-                        val tHours = (i.toFloat() / numPoints) * evalHours
-                        val absoluteTime = timelineStart + (tHours * 60 * 60 * 1000).toLong()
-
                         val c = concs[i]
-                        val x = (i.toFloat() / numPoints) * w
+                        // Apply zoom scaling and panning to X coordinates
+                        val x = ((i.toFloat() / numPoints) * w) * scaleX - offsetX
                         val y = chartBottom - ((c / suggestedMax) * (chartBottom - 20.dp.toPx())).coerceIn(0f, chartBottom)
 
                         if (i == 0) {
@@ -980,7 +968,8 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         prevX = x
                         prevY = y
 
-                        if (curTouchX != null && kotlin.math.abs(x - curTouchX) < (w / numPoints * 1.2f)) {
+                        // Touch detection logic using original screen coordinate touchX
+                        if (curTouchX != null && kotlin.math.abs(x - curTouchX) < (w / numPoints * scaleX * 1.5f)) {
                             touchY = y
                             touchVal = c
                         }
@@ -989,9 +978,11 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     if (pointsToDraw > 0) {
                         val fillPath = Path().apply {
                             addPath(path)
-                            val lastX = (pointsToDraw.toFloat() / numPoints) * w
+                            val lastX = ((pointsToDraw.toFloat() / numPoints) * w) * scaleX - offsetX
                             lineTo(lastX, chartBottom)
-                            lineTo(0f, chartBottom)
+                            // Go back to the start of the visible bounds, not absolute 0
+                            val firstX = -offsetX
+                            lineTo(firstX, chartBottom)
                             close()
                         }
 
@@ -1045,7 +1036,8 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                 }
 
                 // Interactive touch indicator & Multi-drug Tooltip
-                if (curTouchX != null && curvesList.isNotEmpty() && drawProgress.value == 1f) {
+                if (curTouchX != null && localTouchX != null && curvesList.isNotEmpty() && drawProgress.value == 1f) {
+                    // Lock the indicator to exactly what we touched on screen
                     drawLine(
                         color = Color(0xFF93C5FD).copy(alpha = 0.6f),
                         start = Offset(curTouchX, 0f),
@@ -1074,7 +1066,8 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         }
                     }
 
-                    val touchHour = (curTouchX / w) * evalHours
+                    // Map localTouchX (taking zoom/pan into account) back to hour index
+                    val touchHour = (localTouchX / w) * evalHours
                     val touchTimeMillis = timelineStart + (touchHour * 3600000).toLong()
                     val calTouch = Calendar.getInstance().apply { timeInMillis = touchTimeMillis }
                     val calEarliest = Calendar.getInstance().apply { timeInMillis = earliestLog.time }
@@ -1183,6 +1176,8 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         )
                     }
                 }
+
+                drawContext.canvas.nativeCanvas.restore()
             }
         }
 
@@ -1743,39 +1738,15 @@ fun HistoryScreen(
                                     .clip(RoundedCornerShape(24.dp))
                                 .clickable { onDateClick(dateStr) },
                                 shape = RoundedCornerShape(24.dp),
-                                color = if (isDark) Color(0xFF0F172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f),
+                                color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.85f),
                             border = BorderStroke(
                                 1.dp,
-                                    if (isDark) Brush.linearGradient(
-                                    listOf(
-                                            Color.White.copy(alpha = 0.25f),
-                                            Color.White.copy(alpha = 0.05f)
-                                    )
-                                    ) else Brush.linearGradient(
-                                    listOf(
-                                            Color.White.copy(alpha = 0.9f),
-                                            Color.White.copy(alpha = 0.3f)
-                                    )
-                                )
+                                    if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.8f)
                             ),
                                 shadowElevation = if (isDark) 0.dp else 12.dp
                         ) {
                             Row(
                                 modifier = Modifier
-                                    .background(
-                                        if (isDark) Brush.verticalGradient(
-                                            listOf(
-                                                    Color.White.copy(alpha = 0.08f),
-                                                    Color.Transparent,
-                                                    Color.Black.copy(alpha = 0.4f)
-                                            )
-                                        ) else Brush.verticalGradient(
-                                            listOf(
-                                                    Color.White.copy(alpha = 0.65f),
-                                                    Color.White.copy(alpha = 0.15f)
-                                            )
-                                        )
-                                    )
                                     .padding(20.dp)
                                     .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
