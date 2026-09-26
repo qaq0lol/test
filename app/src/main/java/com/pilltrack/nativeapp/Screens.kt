@@ -299,13 +299,13 @@ fun GlassCard(
             clip = true
         },
         shape = shape,
-        // Highly transparent base for strong glass effect
-        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.32f),
+        // Balanced frosted glass: distinct outline, high readability, soft depth
+        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.70f) else Color.White.copy(alpha = 0.60f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.25f)
+            if (isDark) Color(0xFF334155).copy(alpha = 0.60f) else Color(0xFFE2E8F0)
         ),
-        shadowElevation = if (isDark) 4.dp else 0.dp
+        shadowElevation = if (isDark) 4.dp else 6.dp
     ) {
         Column(
             modifier = Modifier.padding(contentPadding),
@@ -505,12 +505,12 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
             .clip(RoundedCornerShape(24.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(24.dp),
-        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.32f),
+        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.70f) else Color.White.copy(alpha = 0.60f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.25f)
+            if (isDark) Color(0xFF334155).copy(alpha = 0.60f) else Color(0xFFE2E8F0)
         ),
-        shadowElevation = 0.dp
+        shadowElevation = if (isDark) 2.dp else 4.dp
     ) {
         Row(
             modifier = Modifier
@@ -691,7 +691,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                 isAntiAlias = true
             }
         }
-        
+
         val tooltipBorderPaint = remember {
             Paint().apply {
                 color = android.graphics.Color.parseColor("#4D3B82F6")
@@ -1265,14 +1265,14 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (AppColors.themeMode == "amoled") Color(0xFF0A0A0A)
-                        else if (isDark) Color.White.copy(alpha = 0.06f)
-                        else Color.White.copy(alpha = 0.25f)
+                        else if (isDark) Color(0xFF1E293B).copy(alpha = 0.60f)
+                        else Color.White.copy(alpha = 0.50f)
                     )
                     .border(
                         1.dp,
                         if (AppColors.themeMode == "amoled") Color(0xFF1F1F1F)
-                        else if (isDark) Color.White.copy(alpha = 0.10f)
-                        else Color.White.copy(alpha = 0.25f),
+                        else if (isDark) Color(0xFF334155).copy(alpha = 0.40f)
+                        else Color(0xFFE2E8F0),
                         RoundedCornerShape(16.dp)
                     )
                     .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -1699,20 +1699,21 @@ fun HistoryScreen(
                 }
             } else {
                 grouped.forEach { (dateStr, dayLogs) ->
-                    item {
+                    item(key = "history_${dateStr}", contentType = "HistoryDateGroup") {
                         val isDark = AppColors.isDark()
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                    .clip(RoundedCornerShape(24.dp))
+                                .graphicsLayer { clip = true }
+                                .clip(RoundedCornerShape(24.dp))
                                 .clickable { onDateClick(dateStr) },
                                 shape = RoundedCornerShape(24.dp),
-                                color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.32f),
+                                color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.70f) else Color.White.copy(alpha = 0.60f),
                             border = BorderStroke(
                                 1.dp,
-                                    if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.25f)
+                                if (isDark) Color(0xFF334155).copy(alpha = 0.60f) else Color(0xFFE2E8F0)
                             ),
-                                shadowElevation = 0.dp
+                                shadowElevation = if (isDark) 2.dp else 4.dp
                         ) {
                             Row(
                                 modifier = Modifier
@@ -2590,7 +2591,6 @@ fun ProfileScreen(
     customBgBitmap: Bitmap? = null,
     onAvatarClick: () -> Unit,
     onSelectBackground: () -> Unit,
-    onAdjustBackground: () -> Unit = {},
     onResetBackground: () -> Unit,
     onUpdateProfile: (UserProfile) -> Unit,
     onShowStatsDetail: () -> Unit
@@ -2800,7 +2800,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.34 · Build 36",
+                        "版本号: v1.35 · Build 37",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )

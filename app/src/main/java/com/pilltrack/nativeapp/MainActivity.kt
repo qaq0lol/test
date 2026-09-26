@@ -353,12 +353,6 @@ fun PillTrackApp() {
                                 customBgBitmap = customBgBitmap,
                                 onAvatarClick = { photoPickerLauncher.launch("image/*") },
                                 onSelectBackground = { bgPickerLauncher.launch("image/*") },
-                                onAdjustBackground = {
-                                    if (customBgBitmap != null) {
-                                        pendingBgBitmap = customBgBitmap
-                                        showBgAdjustSheet = true
-                                    }
-                                },
                                 onResetBackground = {
                                     LocalStorage.deleteBackgroundImage(context)
                                     val updated = userProfile.copy(backgroundPath = null)
@@ -816,7 +810,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    "v1.34",
+                    "v1.35",
                     color = AppColors.Primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
