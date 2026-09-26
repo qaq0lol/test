@@ -21,6 +21,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -31,8 +32,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -135,7 +139,7 @@ fun BackgroundGlow(
     Canvas(
         modifier = Modifier
             .fillMaxSize()
-            .androidx.compose.ui.graphics.graphicsLayer {
+            .graphicsLayer {
                 // Isolate the complex background drawing to its own render node to prevent layout scroll invalidation
                 clip = true
             }
@@ -280,14 +284,14 @@ fun GlassCard(
 ) {
     val isDark = AppColors.isDark()
     Surface(
-        modifier = modifier.androidx.compose.ui.graphics.graphicsLayer {
+        modifier = modifier.graphicsLayer {
             // Flatten elevation and transparency renders during scrolls
             clip = true
         },
         shape = shape,
         // Solid high-contrast dark surface in Dark Mode so wallpaper colors never wash out the card
         color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             if (isDark) Brush.verticalGradient(
                 listOf(
@@ -509,12 +513,12 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .androidx.compose.ui.graphics.graphicsLayer { clip = true }
+            .graphicsLayer { clip = true }
             .clip(RoundedCornerShape(20.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(20.dp),
         color = if (isDark) Color(0xFF131D30) else Color.White,
-        border = androidx.compose.foundation.BorderStroke(
+        border = BorderStroke(
             1.dp,
             if (isDark) Color(0xFF334155).copy(alpha = 0.50f) else Color(0xFFE2E8F0)
         ),
@@ -1188,7 +1192,7 @@ fun EditLogSheet(
                 .pointerInput(Unit) { detectTapGestures { } },
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = AppColors.Card,
-            border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border),
+            border = BorderStroke(1.dp, AppColors.Border),
             shadowElevation = 24.dp
         ) {
             Column(
@@ -1285,7 +1289,7 @@ fun EditLogSheet(
                         },
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFF1F5F9),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                     ) {
                         Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(16.dp))
@@ -1315,7 +1319,7 @@ fun EditLogSheet(
                         },
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFF1F5F9),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                     ) {
                         Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.AccessTime, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(16.dp))
@@ -1439,8 +1443,7 @@ fun HistoryScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        val grouped by remember(logs, searchQuery) {
-            derivedStateOf {
+        val grouped = remember(logs, searchQuery) {
                 val filteredLogs = if (searchQuery.isBlank()) {
                     logs
                 } else {
@@ -1451,7 +1454,6 @@ fun HistoryScreen(
                 filteredLogs.groupBy {
                     sdf.format(Date(it.time))
                 }.toSortedMap(reverseOrder())
-            }
         }
 
         LazyColumn(
@@ -1520,7 +1522,7 @@ fun HistoryScreen(
                                 .clickable { onDateClick(dateStr) },
                             shape = RoundedCornerShape(20.dp),
                             color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
-                            border = androidx.compose.foundation.BorderStroke(
+                            border = BorderStroke(
                                 1.dp,
                                 if (isDark) Brush.verticalGradient(
                                     listOf(
@@ -1776,7 +1778,7 @@ fun StatsDetailSheet(
                 .pointerInput(Unit) { detectTapGestures { } }, // absorb click to prevent dismiss
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             color = AppColors.Background,
-            border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border),
+            border = BorderStroke(1.dp, AppColors.Border),
             shadowElevation = 24.dp
         ) {
             Column(
@@ -1831,7 +1833,7 @@ fun StatsDetailSheet(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(20.dp),
                             color = AppColors.Card,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border),
+                            border = BorderStroke(1.dp, AppColors.Border),
                             shadowElevation = 2.dp
                         ) {
                             Row(
@@ -2276,7 +2278,7 @@ fun ThemeSettingsCard(userProfile: UserProfile, onUpdateProfile: (UserProfile) -
                         },
                     shape = RoundedCornerShape(12.dp),
                     color = if (isSelected) AppColors.Primary else AppColors.Card.copy(alpha = 0.5f),
-                    border = androidx.compose.foundation.BorderStroke(
+                    border = BorderStroke(
                         1.dp,
                         if (isSelected) AppColors.Primary else AppColors.Border
                     )
@@ -2363,7 +2365,7 @@ fun WallpaperSettingsCard(
                     modifier = Modifier.weight(1f).height(44.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary)
+                    border = BorderStroke(1.dp, AppColors.Primary)
                 ) {
                     Text("调节效果", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
@@ -2373,7 +2375,7 @@ fun WallpaperSettingsCard(
                     modifier = Modifier.weight(0.9f).height(44.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.TextSecondary),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border)
+                    border = BorderStroke(1.dp, AppColors.Border)
                 ) {
                     Text("恢复默认", fontSize = 12.sp)
                 }
@@ -2624,7 +2626,7 @@ fun AddLogSheet(
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFEFF6FF),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .clickable {
@@ -2658,7 +2660,7 @@ fun AddLogSheet(
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFF1F5F9),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
                             .clickable {
@@ -2768,7 +2770,7 @@ fun AddLogSheet(
                 },
                 shape = RoundedCornerShape(12.dp),
                 color = Color(0xFFF1F5F9),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(16.dp))
@@ -2799,7 +2801,7 @@ fun AddLogSheet(
                 },
                 shape = RoundedCornerShape(12.dp),
                 color = Color(0xFFF1F5F9),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.AccessTime, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(16.dp))
@@ -2979,7 +2981,7 @@ fun InventoryCard() {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = AppColors.Background,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isLow) Color(0xFFEF4444).copy(alpha = 0.5f) else AppColors.Border)
+                        border = BorderStroke(1.dp, if (isLow) Color(0xFFEF4444).copy(alpha = 0.5f) else AppColors.Border)
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp).fillMaxWidth(),
@@ -3188,7 +3190,7 @@ fun WallpaperAdjustScreen(
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = Color.White.copy(alpha = 0.88f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
+                    border = BorderStroke(1.dp, Color.White),
                     shadowElevation = 6.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -3209,7 +3211,7 @@ fun WallpaperAdjustScreen(
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = Color.White.copy(alpha = 0.88f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
+                    border = BorderStroke(1.dp, Color.White),
                     shadowElevation = 6.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -3238,7 +3240,7 @@ fun WallpaperAdjustScreen(
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = AppColors.TextPrimary.copy(alpha = 0.75f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                 shadowElevation = 12.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -3304,7 +3306,7 @@ fun WallpaperAdjustScreen(
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = AppColors.TextPrimary.copy(alpha = 0.85f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                     shadowElevation = 10.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -3336,7 +3338,7 @@ fun WallpaperAdjustScreen(
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = AppColors.TextPrimary.copy(alpha = 0.88f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                 shadowElevation = 16.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -3395,7 +3397,7 @@ fun WallpaperAdjustScreen(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = if (showAlphaControl) Color(0xFF38BDF8).copy(alpha = 0.25f) else Color.White.copy(alpha = 0.12f),
-                            border = androidx.compose.foundation.BorderStroke(
+                            border = BorderStroke(
                                 1.dp,
                                 if (showAlphaControl) Color(0xFF38BDF8) else Color.Transparent
                             ),
