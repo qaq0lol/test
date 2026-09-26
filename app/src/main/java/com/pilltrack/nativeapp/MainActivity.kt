@@ -274,7 +274,6 @@ fun PillTrackApp() {
                         "today" -> {
                             TodayScreen(
                                 logs = logs,
-                                userProfile = userProfile,
                                 avatarBitmap = avatarBitmap,
                                 onAvatarClick = { photoPickerLauncher.launch("image/*") },
                                 onDeleteLog = { logToDelete ->
@@ -302,11 +301,7 @@ fun PillTrackApp() {
                                 if (currentDetailDate == null) {
                                     HistoryScreen(
                                         logs = logs,
-                                        onDateClick = { date -> detailDate = date },
-                                        onAddLogClick = {
-                                            addSheetInitialTime = System.currentTimeMillis()
-                                            showAddSheet = true
-                                        }
+                                        onDateClick = { date -> detailDate = date }
                                     )
                                 } else {
                                     DetailScreen(
@@ -821,7 +816,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
                 shadowElevation = 2.dp
             ) {
                 Text(
-                    "v1.29",
+                    "v1.32",
                     color = AppColors.Primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,

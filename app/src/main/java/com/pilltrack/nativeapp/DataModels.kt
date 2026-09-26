@@ -308,14 +308,20 @@ object LocalStorage {
     private val weekNames = arrayOf("一", "二", "三", "四", "五", "六", "日")
 
     // Check past 7 days (index 0 is 6 days ago, index 6 is today)
-    fun getMonthAdherence(logs: List<PillLog>): List<Pair<Int, Boolean>> {
+    data class MonthAdherenceData(val firstDayOffset: Int, val days: List<Pair<Int, Boolean>>)
+
+    fun getMonthAdherence(logs: List<PillLog>): MonthAdherenceData {
         val logDates = logs.map { logLocalDate(it.time) }.toSet()
 
         val today = LocalDate.now()
+        val firstDay = today.withDayOfMonth(1)
+        val monSunOffset = firstDay.dayOfWeek.value - 1
+        
         val daysInMonth = today.lengthOfMonth()
-        return (1..daysInMonth).map { day ->
+        val daysList = (1..daysInMonth).map { day ->
             val d = today.withDayOfMonth(day)
             Pair(day, logDates.contains(d))
         }
+        return MonthAdherenceData(monSunOffset, daysList)
     }
 }

@@ -374,7 +374,6 @@ fun AvatarView(
 @Composable
 fun TodayScreen(
     logs: List<PillLog>,
-    userProfile: UserProfile,
     avatarBitmap: Bitmap?,
     onAvatarClick: () -> Unit,
     onDeleteLog: (PillLog) -> Unit
@@ -726,8 +725,6 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         var zoomStarted = false
-                        var dragStarted = false
-
                         if (down.pressed) {
                             touchX = down.position.x
                         }
@@ -759,7 +756,6 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                                 pointers.forEach { it.consume() }
                             } else if (activePointers.size == 1 && !zoomStarted) {
                                 // Single touch drag logic for tooltips
-                                dragStarted = true
                                 if (scaleX == 1f) {
                                     touchX = activePointers.first().position.x
                                 }
@@ -900,7 +896,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                 val curvesList = mutableListOf<DrugCurveData>()
 
                 // Calculate curve for each distinct medication using user's customized color!
-                drugGroups.entries.forEachIndexed { groupIndex, (drugName, medLogs) ->
+                drugGroups.entries.forEachIndexed { _, (drugName, medLogs) ->
                     val colorHex = medLogs.first().color
                     val drugColor = try {
                         Color(android.graphics.Color.parseColor(colorHex))
@@ -1117,19 +1113,10 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     val rect = RectF(tooltipX, tooltipY, tooltipX + tooltipWidth, tooltipY + tooltipHeight)
 
                     // Glass background
-                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, android.graphics.Paint().apply {
-                        color = android.graphics.Color.parseColor("#E60B0F19")
-                        setShadowLayer(16f, 0f, 8f, android.graphics.Color.parseColor("#80000000"))
-                        isAntiAlias = true
-                    })
+                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, tooltipBgPaint)
 
                     // Subtle border
-                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, android.graphics.Paint().apply {
-                        color = android.graphics.Color.parseColor("#33FFFFFF")
-                        style = android.graphics.Paint.Style.STROKE
-                        strokeWidth = 2f
-                        isAntiAlias = true
-                    })
+                    drawContext.canvas.nativeCanvas.drawRoundRect(rect, 24f, 24f, tooltipBorderPaint)
 
                     // Draw Time header
                     drawContext.canvas.nativeCanvas.drawText(
@@ -1145,11 +1132,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         tooltipY + 32.dp.toPx(),
                         tooltipX + tooltipWidth - 16.dp.toPx(),
                         tooltipY + 32.dp.toPx(),
-                        android.graphics.Paint().apply {
-                            color = android.graphics.Color.parseColor("#33FFFFFF")
-                            strokeWidth = 2f
-                            isAntiAlias = true
-                        }
+                        tooltipBorderPaint
                     )
 
                     // Draw drug entries
@@ -1658,8 +1641,7 @@ fun EditLogSheet(
 @Composable
 fun HistoryScreen(
     logs: List<PillLog>,
-    onDateClick: (String) -> Unit,
-    onAddLogClick: () -> Unit
+    onDateClick: (String) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
@@ -2311,9 +2293,9 @@ fun ProfileHeaderCard(
 }
 
 @Composable
-fun MonthAdherenceCard(monthAdherence: List<Pair<Int, Boolean>>, showStats: Boolean) {
-    val completedCount = remember(monthAdherence) { monthAdherence.count { it.second } }
-    val daysInMonth = monthAdherence.size
+fun MonthAdherenceCard(monthAdherence: LocalStorage.MonthAdherenceData, showStats: Boolean) {
+    val completedCount = remember(monthAdherence) { monthAdherence.days.count { it.second } }
+    val daysInMonth = monthAdherence.days.size
     val animCompletedCount by animateIntAsState(
         targetValue = if (showStats) completedCount else 0,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
@@ -2325,13 +2307,31 @@ fun MonthAdherenceCard(monthAdherence: List<Pair<Int, Boolean>>, showStats: Bool
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("📅 本月用药统计", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Text("$animCompletedCount/$daysInMonth 天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("$animCompletedCount/$daysInMonth 天天", color = AppColors.Primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+        
+        // Weekday headers (Mon-Sun)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            val weekDays = listOf("一", "二", "三", "四", "五", "六", "日")
+            weekDays.forEach { dayStr ->
+                Text(
+                    text = dayStr,
+                    modifier = Modifier.weight(1f),
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
 
         val columns = 7
-        val rows = (monthAdherence.size + columns - 1) / columns
+        val totalCells = monthAdherence.days.size + monthAdherence.firstDayOffset
+        val rows = (totalCells + columns - 1) / columns
+        
         Column(modifier = Modifier.fillMaxWidth()) {
             for (r in 0 until rows) {
                 Row(
@@ -2339,9 +2339,11 @@ fun MonthAdherenceCard(monthAdherence: List<Pair<Int, Boolean>>, showStats: Bool
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     for (c in 0 until columns) {
-                        val index = r * columns + c
-                        if (index < monthAdherence.size) {
-                            val (day, isChecked) = monthAdherence[index]
+                        val cellIndex = r * columns + c
+                        val dayIndex = cellIndex - monthAdherence.firstDayOffset
+                        
+                        if (dayIndex >= 0 && dayIndex < monthAdherence.days.size) {
+                            val (day, isChecked) = monthAdherence.days[dayIndex]
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
@@ -2374,7 +2376,7 @@ fun MonthAdherenceCard(monthAdherence: List<Pair<Int, Boolean>>, showStats: Bool
                         }
                     }
                 }
-                if (r < rows - 1) Spacer(modifier = Modifier.height(8.dp))
+                if (r < rows - 1) Spacer(modifier = Modifier.height(4.dp))
             }
         }
     }
@@ -2815,7 +2817,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.29 · Build 31",
+                        "版本号: v1.32 · Build 34",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )
