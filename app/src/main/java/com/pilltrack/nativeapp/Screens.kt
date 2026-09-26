@@ -794,10 +794,10 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     }
                     drawPath(
                         path = baselinePath,
-                        color = Color.White.copy(alpha = 0.25f),
+                        color = Color.White.copy(alpha = 0.35f),
                         style = Stroke(
-                            width = 2f,
-                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                            width = 3f,
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
                         )
                     )
 
@@ -935,6 +935,9 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     // Apply drawing progress animation limit
                     val pointsToDraw = (numPoints * drawProgress.value).toInt().coerceIn(0, numPoints)
 
+                    var prevX = 0f
+                    var prevY = 0f
+
                     for (i in 0..pointsToDraw) {
                         val tHours = (i.toFloat() / numPoints) * evalHours
                         val absoluteTime = timelineStart + (tHours * 60 * 60 * 1000).toLong()
@@ -943,7 +946,16 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         val x = (i.toFloat() / numPoints) * w
                         val y = chartBottom - ((c / suggestedMax) * (chartBottom - 20.dp.toPx())).coerceIn(0f, chartBottom)
 
-                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                        if (i == 0) {
+                            path.moveTo(x, y)
+                        } else {
+                            // Smooth bezier curve implementation
+                            val controlPointX = (prevX + x) / 2f
+                            path.cubicTo(controlPointX, prevY, controlPointX, y, x, y)
+                        }
+
+                        prevX = x
+                        prevY = y
 
                         if (curTouchX != null && kotlin.math.abs(x - curTouchX) < (w / numPoints * 1.2f)) {
                             touchY = y
@@ -967,8 +979,8 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                             path = fillPath,
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    drugColor.copy(alpha = 0.45f * fillAlphaFactor),
-                                    drugColor.copy(alpha = 0.02f * fillAlphaFactor)
+                                    drugColor.copy(alpha = 0.55f * fillAlphaFactor),
+                                    drugColor.copy(alpha = 0.05f * fillAlphaFactor)
                                 ),
                                 startY = 0f,
                                 endY = chartBottom
@@ -980,7 +992,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                             path = path,
                             color = drugColor.copy(alpha = 0.3f),
                             style = Stroke(
-                                width = 12.0f,
+                                width = 16.0f,
                                 cap = androidx.compose.ui.graphics.StrokeCap.Round,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
