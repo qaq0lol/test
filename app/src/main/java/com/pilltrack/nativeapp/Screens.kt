@@ -2233,6 +2233,7 @@ fun ProfileHeaderCard(
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
             .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onEditProfileClick()
@@ -3438,10 +3439,20 @@ fun WallpaperAdjustScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectTransformGestures(panZoomLock = false) { _, pan, zoom, _ ->
-                        scale = (scale * zoom).coerceIn(0.4f, 6.0f)
-                        offsetX += pan.x
-                        offsetY += pan.y
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        do {
+                            val event = awaitPointerEvent()
+                            val zoomChange = event.calculateZoom()
+                            val panChange = event.calculatePan()
+
+                            if (zoomChange != 1f || panChange != Offset.Zero) {
+                                scale = (scale * zoomChange).coerceIn(0.4f, 6.0f)
+                                offsetX += panChange.x
+                                offsetY += panChange.y
+                                event.changes.forEach { it.consume() }
+                            }
+                        } while (event.changes.any { it.pressed })
                     }
                 }
         ) {
