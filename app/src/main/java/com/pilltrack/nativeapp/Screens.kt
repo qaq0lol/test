@@ -300,12 +300,12 @@ fun GlassCard(
         },
         shape = shape,
         // Highly transparent base for strong glass effect
-        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.72f),
+        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.32f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.85f)
+            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.25f)
         ),
-        shadowElevation = if (isDark) 4.dp else 8.dp
+        shadowElevation = if (isDark) 4.dp else 0.dp
     ) {
         Column(
             modifier = Modifier.padding(contentPadding),
@@ -505,12 +505,12 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
             .clip(RoundedCornerShape(24.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = RoundedCornerShape(24.dp),
-        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.72f),
+        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.32f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.85f)
+            if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.25f)
         ),
-        shadowElevation = if (isDark) 0.dp else 4.dp
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -799,35 +799,21 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         )
                     )
 
-                    // Therapeutic Window Zone (有效治疗浓度参考区间)
+                    // Therapeutic Window Zone (有效治疗浓度参考区间 - 极柔和无边框自然过渡)
                     val windowTop = chartBottom * 0.30f
                     val windowBottom = chartBottom * 0.70f
                     drawRoundRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                Color(0xFF10B981).copy(alpha = 0.035f),
-                                Color(0xFF10B981).copy(alpha = 0.008f)
+                                Color(0xFF10B981).copy(alpha = 0.02f),
+                                Color(0xFF10B981).copy(alpha = 0.005f)
                             ),
                             startY = windowTop,
                             endY = windowBottom
                         ),
                         topLeft = Offset(0f, windowTop),
                         size = androidx.compose.ui.geometry.Size(w, windowBottom - windowTop),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(12f, 12f)
-                    )
-                    drawLine(
-                        color = Color(0xFF10B981).copy(alpha = 0.12f),
-                        start = Offset(0f, windowTop),
-                        end = Offset(w, windowTop),
-                        strokeWidth = 1f,
-                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 6f), 0f)
-                    )
-                    drawLine(
-                        color = Color(0xFF10B981).copy(alpha = 0.08f),
-                        start = Offset(0f, windowBottom),
-                        end = Offset(w, windowBottom),
-                        strokeWidth = 1f,
-                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 6f), 0f)
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(16f, 16f)
                     )
 
                     val earliestLog = logs.minByOrNull { it.time }!!
@@ -1220,12 +1206,7 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
     }
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (AppColors.themeMode == "amoled") Color(0xFF000000) else if (isDark) Color(0xFF0F172A).copy(alpha = 0.50f) else Color.White.copy(alpha = 0.35f))
-            .border(1.dp, if (AppColors.themeMode == "amoled") Color(0xFF1F1F1F) else if (isDark) Color(0xFF334155).copy(alpha = 0.40f) else Color.White.copy(alpha = 0.60f), RoundedCornerShape(20.dp))
-            .padding(14.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
@@ -1282,9 +1263,19 @@ fun PharmacokineticsClearanceDashboard(logs: List<PillLog>, modifier: Modifier =
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(if (AppColors.themeMode == "amoled") Color(0xFF0A0A0A) else if (isDark) Color(0xFF1E293B).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.65f))
-                    .border(1.dp, if (AppColors.themeMode == "amoled") Color(0xFF1F1F1F) else if (isDark) Color(0xFF334155).copy(alpha = 0.30f) else Color.White.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .background(
+                        if (AppColors.themeMode == "amoled") Color(0xFF0A0A0A)
+                        else if (isDark) Color.White.copy(alpha = 0.06f)
+                        else Color.White.copy(alpha = 0.25f)
+                    )
+                    .border(
+                        1.dp,
+                        if (AppColors.themeMode == "amoled") Color(0xFF1F1F1F)
+                        else if (isDark) Color.White.copy(alpha = 0.10f)
+                        else Color.White.copy(alpha = 0.25f),
+                        RoundedCornerShape(16.dp)
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1716,12 +1707,12 @@ fun HistoryScreen(
                                     .clip(RoundedCornerShape(24.dp))
                                 .clickable { onDateClick(dateStr) },
                                 shape = RoundedCornerShape(24.dp),
-                                color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.72f),
+                                color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.32f),
                             border = BorderStroke(
                                 1.dp,
-                                    if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.85f)
+                                    if (isDark) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.25f)
                             ),
-                                shadowElevation = if (isDark) 0.dp else 4.dp
+                                shadowElevation = 0.dp
                         ) {
                             Row(
                                 modifier = Modifier
@@ -2809,7 +2800,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.33 · Build 35",
+                        "版本号: v1.34 · Build 36",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )
