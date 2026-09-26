@@ -409,39 +409,39 @@ fun TodayScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 44.dp, start = 18.dp, end = 18.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    "PillTrack",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = AppColors.TextPrimary,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.5).sp
+                )
+                val dateStr = SimpleDateFormat("MM月dd日 EEEE", Locale.CHINESE).format(Date())
+                Text(dateStr, color = AppColors.TextSecondary, style = MaterialTheme.typography.bodyMedium)
+            }
+
+            AvatarView(
+                avatarBitmap = avatarBitmap,
+                size = 50.dp,
+                showCameraBadge = false,
+                onClick = onAvatarClick
+            )
+        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 44.dp, bottom = 120.dp, start = 18.dp, end = 18.dp),
+            contentPadding = PaddingValues(bottom = 120.dp, start = 18.dp, end = 18.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            "PillTrack",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = AppColors.TextPrimary,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.5).sp
-                        )
-                        val dateStr = SimpleDateFormat("MM月dd日 EEEE", Locale.CHINESE).format(Date())
-                        Text(dateStr, color = AppColors.TextSecondary, style = MaterialTheme.typography.bodyMedium)
-                    }
-
-                    AvatarView(
-                        avatarBitmap = avatarBitmap,
-                        size = 50.dp,
-                        showCameraBadge = false,
-                        onClick = onAvatarClick
-                    )
-                }
-            }
 
             item(key = "theme_card") {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
@@ -1443,6 +1443,33 @@ fun HistoryScreen(
     onDateClick: (String) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    var previousIndex by remember { mutableStateOf(0) }
+    var previousScrollOffset by remember { mutableStateOf(0) }
+    var isScrollingUp by remember { mutableStateOf(true) }
+
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
+        val currentIndex = listState.firstVisibleItemIndex
+        val currentOffset = listState.firstVisibleItemScrollOffset
+
+        if (currentIndex > previousIndex) {
+            isScrollingUp = false
+        } else if (currentIndex < previousIndex) {
+            isScrollingUp = true
+        } else {
+            if (currentOffset > previousScrollOffset) {
+                isScrollingUp = false
+            } else if (currentOffset < previousScrollOffset) {
+                isScrollingUp = true
+            }
+        }
+        previousIndex = currentIndex
+        previousScrollOffset = currentOffset
+    }
+
+    val searchBarAlpha by androidx.compose.animation.core.animateFloatAsState(if (isScrollingUp || listState.firstVisibleItemIndex == 0) 1f else 0f)
+    val searchBarOffsetY by androidx.compose.animation.core.animateDpAsState(if (isScrollingUp || listState.firstVisibleItemIndex == 0) 0.dp else (-80).dp)
 
     Box(modifier = Modifier.fillMaxSize()) {
         val grouped = remember(logs, searchQuery) {
@@ -1459,51 +1486,11 @@ fun HistoryScreen(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 48.dp, bottom = 120.dp, start = 18.dp, end = 18.dp),
+            contentPadding = PaddingValues(top = 110.dp, bottom = 120.dp, start = 18.dp, end = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
-                Text(
-                    "用药记录",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = AppColors.TextPrimary,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Search Bar
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("搜索药品名称...", color = AppColors.TextSecondary) },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Search, contentDescription = "Search", tint = AppColors.TextSecondary)
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            Icon(
-                                Icons.Filled.Clear,
-                                contentDescription = "Clear",
-                                tint = AppColors.TextSecondary,
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .clickable { searchQuery = "" }
-                            )
-                        }
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        textColor = AppColors.TextPrimary,
-                        containerColor = AppColors.SurfaceVariant.copy(alpha = 0.5f),
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = AppColors.Primary
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-            }
 
             if (grouped.isEmpty()) {
                 item(key = "empty_history") {
@@ -1567,6 +1554,47 @@ fun HistoryScreen(
                     }
                 }
             }
+        }
+
+        // Floating Search Bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 44.dp, start = 18.dp, end = 18.dp)
+                .offset(y = searchBarOffsetY)
+                .graphicsLayer(alpha = searchBarAlpha)
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("搜索药品名称...", color = AppColors.TextSecondary) },
+                leadingIcon = {
+                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = AppColors.TextSecondary)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        Icon(
+                            Icons.Filled.Clear,
+                            contentDescription = "Clear",
+                            tint = AppColors.TextSecondary,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable { searchQuery = "" }
+                        )
+                    }
+                },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(if (AppColors.isDark()) 8.dp else 4.dp, RoundedCornerShape(16.dp)),
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    textColor = AppColors.TextPrimary,
+                    containerColor = AppColors.Card.copy(alpha = 0.95f),
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = AppColors.Primary
+                ),
+                shape = RoundedCornerShape(16.dp)
+            )
         }
     }
 }
@@ -2204,174 +2232,7 @@ fun OverallStatsCard(logsSize: Int, medTypes: Int, showStats: Boolean, onShowSta
     }
 }
 
-@Composable
-fun ThemeSettingsCard(userProfile: UserProfile, onUpdateProfile: (UserProfile) -> Unit) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .background(AppColors.PrimaryContainer, RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🌓", fontSize = 22.sp)
-                }
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text("外观与深色模式", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    val currentModeLabel = when (userProfile.themeMode) {
-                        "dark" -> "当前为强制深色模式"
-                        "amoled" -> "当前为AMOLED纯黑模式"
-                        "light" -> "当前为强制浅色模式"
-                        else -> "当前跟随手机系统"
-                    }
-                    Text(
-                        currentModeLabel,
-                        color = AppColors.TextSecondary,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            val modes = listOf(
-                Triple("system", "跟随", Icons.Filled.SettingsBrightness),
-                Triple("light", "浅色", Icons.Filled.LightMode),
-                Triple("dark", "深色", Icons.Filled.DarkMode),
-                Triple("amoled", "纯黑", Icons.Filled.Nightlight)
-            )
-            modes.forEach { (mode, label, icon) ->
-                val isSelected = userProfile.themeMode == mode
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable {
-                            if (!isSelected) {
-                                val updated = userProfile.copy(themeMode = mode)
-                                AppColors.themeMode = mode
-                                onUpdateProfile(updated)
-                            }
-                        },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) AppColors.Primary else AppColors.Card.copy(alpha = 0.5f),
-                    border = BorderStroke(
-                        1.dp,
-                        if (isSelected) AppColors.Primary else AppColors.Border
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            icon,
-                            contentDescription = null,
-                            tint = if (isSelected) Color.White else AppColors.TextSecondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            label,
-                            color = if (isSelected) Color.White else AppColors.TextPrimary,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun WallpaperSettingsCard(
-    customBgBitmap: Bitmap?,
-    onSelectBackground: () -> Unit,
-    onAdjustBackground: () -> Unit,
-    onResetBackground: () -> Unit
-) {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .background(AppColors.PrimaryContainer, RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🖼️", fontSize = 22.sp)
-                }
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text("个性化壁纸设置", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(
-                        if (customBgBitmap != null) "已启用相册自定义壁纸" else "当前使用默认晨光亮色主题",
-                        color = AppColors.TextSecondary,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = onSelectBackground,
-                modifier = Modifier.weight(1.2f).height(44.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
-            ) {
-                Icon(Icons.Filled.Image, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("从相册导入", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-
-            if (customBgBitmap != null) {
-                OutlinedButton(
-                    onClick = onAdjustBackground,
-                    modifier = Modifier.weight(1f).height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary),
-                    border = BorderStroke(1.dp, AppColors.Primary)
-                ) {
-                    Text("调节效果", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-
-                OutlinedButton(
-                    onClick = onResetBackground,
-                    modifier = Modifier.weight(0.9f).height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.TextSecondary),
-                    border = BorderStroke(1.dp, AppColors.Border)
-                ) {
-                    Text("恢复默认", fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun ProfileScreen(
@@ -2381,6 +2242,7 @@ fun ProfileScreen(
     customBgBitmap: Bitmap? = null,
     onAvatarClick: () -> Unit,
     onSelectBackground: () -> Unit,
+    onAdjustBackground: () -> Unit,
     onResetBackground: () -> Unit,
     onUpdateProfile: (UserProfile) -> Unit,
     onShowStatsDetail: () -> Unit
@@ -2451,8 +2313,7 @@ fun ProfileScreen(
                                 val modes = listOf(
                                     Triple("system", "跟随系统", Icons.Filled.SettingsBrightness),
                                     Triple("light", "浅色模式", Icons.Filled.LightMode),
-                                    Triple("dark", "深色模式", Icons.Filled.DarkMode),
-                                    Triple("amoled", "AMOLED 纯黑", Icons.Filled.Nightlight)
+                                    Triple("dark", "深色模式", Icons.Filled.DarkMode)
                                 )
                                 modes.forEach { (mode, label, icon) ->
                                     val isSelected = userProfile.themeMode == mode
@@ -2556,7 +2417,48 @@ fun ProfileScreen(
                                     .fillMaxWidth()
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onResetBackground()
+                                        onAdjustBackground()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.size(36.dp).background(Color(0xFFE2E8F0), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                    Text("🎨", fontSize = 18.sp)
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("调节当前背景", color = AppColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Divider(color = AppColors.Border.copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 16.dp))
+
+                            var showConfirmReset by remember { mutableStateOf(false) }
+                            if (showConfirmReset) {
+                                AlertDialog(
+                                    onDismissRequest = { showConfirmReset = false },
+                                    containerColor = AppColors.Card,
+                                    title = { Text("恢复默认背景", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+                                    text = { Text("您确定要移除当前的自定义背景，恢复为默认背景吗？", color = AppColors.TextSecondary) },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onResetBackground()
+                                            showConfirmReset = false
+                                        }) { Text("确定", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold) }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showConfirmReset = false }) { Text("取消", color = AppColors.TextSecondary) }
+                                    }
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        showConfirmReset = true
                                     }
                                     .padding(horizontal = 16.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically

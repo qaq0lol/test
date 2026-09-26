@@ -54,6 +54,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val profile = LocalStorage.loadProfile(this)
         AppColors.themeMode = profile.themeMode
         val isDark = when (profile.themeMode) {
@@ -350,6 +352,12 @@ fun PillTrackApp() {
                                 customBgBitmap = customBgBitmap,
                                 onAvatarClick = { photoPickerLauncher.launch("image/*") },
                                 onSelectBackground = { bgPickerLauncher.launch("image/*") },
+                                onAdjustBackground = {
+                                    if (customBgBitmap != null) {
+                                        pendingBgBitmap = customBgBitmap
+                                        showBgAdjustSheet = true
+                                    }
+                                },
                                 onResetBackground = {
                                     LocalStorage.deleteBackgroundImage(context)
                                     val updated = userProfile.copy(backgroundPath = null)
