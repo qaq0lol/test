@@ -280,50 +280,54 @@ fun BackgroundGlow(
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
-    shape: RoundedCornerShape = RoundedCornerShape(24.dp),
+    shape: RoundedCornerShape = RoundedCornerShape(28.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
     val isDark = AppColors.isDark()
     Surface(
         modifier = modifier.graphicsLayer {
-            // Flatten elevation and transparency renders during scrolls
+            // Apple-style Glass Card parameters
             clip = true
         },
         shape = shape,
-        // Solid high-contrast dark surface in Dark Mode so wallpaper colors never wash out the card
-        color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
+        // Highly transparent base for strong glass effect
+        color = if (isDark) Color(0xFF0B1120).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.50f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Brush.verticalGradient(
+            if (isDark) Brush.linearGradient(
                 listOf(
-                    Color(0xFF334155).copy(alpha = 0.60f),
-                    Color(0xFF1E293B).copy(alpha = 0.30f)
+                    Color.White.copy(alpha = 0.25f),
+                    Color.White.copy(alpha = 0.05f),
+                    Color.White.copy(alpha = 0.10f)
                 )
-            ) else Brush.verticalGradient(
+            ) else Brush.linearGradient(
                 listOf(
-                    Color(0xFFE2E8F0),
-                    Color(0xFFF1F5F9)
+                    Color.White.copy(alpha = 0.95f),
+                    Color.White.copy(alpha = 0.25f),
+                    Color.White.copy(alpha = 0.65f)
                 )
             )
         ),
-        shadowElevation = if (isDark) 12.dp else 0.dp
+        shadowElevation = if (isDark) 4.dp else 16.dp
     ) {
         Column(
             modifier = Modifier
                 .background(
                     if (isDark) Brush.verticalGradient(
                         listOf(
-                            Color(0xFF182236),
-                            Color(0xFF101726)
+                            Color.White.copy(alpha = 0.08f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.3f)
                         )
                     ) else Brush.verticalGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.40f),
-                            Color.White.copy(alpha = 0.10f)
+                            Color.White.copy(alpha = 0.70f),
+                            Color.White.copy(alpha = 0.20f),
+                            Color.White.copy(alpha = 0.50f)
                         )
                     )
                 )
-                .padding(16.dp),
+                .padding(18.dp),
             content = content
         )
     }
@@ -518,29 +522,40 @@ fun LogCard(log: PillLog, onClick: (() -> Unit)? = null, onDelete: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer { clip = true }
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(24.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-        shape = RoundedCornerShape(20.dp),
-        color = if (isDark) Color(0xFF131D30) else Color.White,
+        shape = RoundedCornerShape(24.dp),
+        color = if (isDark) Color(0xFF0F172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f),
         border = BorderStroke(
             1.dp,
-            if (isDark) Color(0xFF334155).copy(alpha = 0.50f) else Color(0xFFE2E8F0)
+            if (isDark) Brush.linearGradient(
+                listOf(
+                    Color.White.copy(alpha = 0.25f),
+                    Color.White.copy(alpha = 0.05f)
+                )
+            ) else Brush.linearGradient(
+                listOf(
+                    Color.White.copy(alpha = 0.9f),
+                    Color.White.copy(alpha = 0.3f)
+                )
+            )
         ),
-        // Deep Optimization: Drop expensive runtime shadow calculations for frequently recycled list items
-        shadowElevation = 0.dp
+        shadowElevation = if (isDark) 0.dp else 10.dp
     ) {
         Row(
             modifier = Modifier
                 .background(
                     if (isDark) Brush.verticalGradient(
                         listOf(
-                            Color(0xFF182236),
-                            Color(0xFF101726)
+                            Color.White.copy(alpha = 0.08f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.4f)
                         )
                     ) else Brush.verticalGradient(
                         listOf(
-                            pillColor.copy(alpha = 0.05f),
-                            Color.Transparent
+                            Color.White.copy(alpha = 0.65f),
+                            Color.White.copy(alpha = 0.15f),
+                            pillColor.copy(alpha = 0.08f)
                         )
                     )
                 )
@@ -1717,38 +1732,39 @@ fun HistoryScreen(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
+                                    .clip(RoundedCornerShape(24.dp))
                                 .clickable { onDateClick(dateStr) },
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
+                                shape = RoundedCornerShape(24.dp),
+                                color = if (isDark) Color(0xFF0F172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f),
                             border = BorderStroke(
                                 1.dp,
-                                if (isDark) Brush.verticalGradient(
+                                    if (isDark) Brush.linearGradient(
                                     listOf(
-                                        Color(0xFF334155).copy(alpha = 0.60f),
-                                        Color(0xFF1E293B).copy(alpha = 0.30f)
+                                            Color.White.copy(alpha = 0.25f),
+                                            Color.White.copy(alpha = 0.05f)
                                     )
-                                ) else Brush.verticalGradient(
+                                    ) else Brush.linearGradient(
                                     listOf(
-                                        Color.White,
-                                        Color.White.copy(alpha = 0.60f)
+                                            Color.White.copy(alpha = 0.9f),
+                                            Color.White.copy(alpha = 0.3f)
                                     )
                                 )
                             ),
-                            shadowElevation = if (isDark) 10.dp else 6.dp
+                                shadowElevation = if (isDark) 0.dp else 12.dp
                         ) {
                             Row(
                                 modifier = Modifier
                                     .background(
                                         if (isDark) Brush.verticalGradient(
                                             listOf(
-                                                Color(0xFF182236),
-                                                Color(0xFF101726)
+                                                    Color.White.copy(alpha = 0.08f),
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.4f)
                                             )
                                         ) else Brush.verticalGradient(
                                             listOf(
-                                                Color.White.copy(alpha = 0.40f),
-                                                Color.White.copy(alpha = 0.10f)
+                                                    Color.White.copy(alpha = 0.65f),
+                                                    Color.White.copy(alpha = 0.15f)
                                             )
                                         )
                                     )
