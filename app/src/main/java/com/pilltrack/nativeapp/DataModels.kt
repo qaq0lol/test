@@ -250,7 +250,8 @@ object LocalStorage {
                 file.absolutePath,
                 BitmapFactory.Options().apply {
                     inSampleSize = sample
-                    inPreferredConfig = Bitmap.Config.RGB_565
+                    // Use ARGB_8888 for better quality (especially for avatars) instead of RGB_565
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
                 }
             )
         } catch (e: Exception) {
@@ -277,7 +278,7 @@ object LocalStorage {
     }
 
     fun loadAvatarBitmap(path: String?): Bitmap? {
-        return decodeSampledFile(path, 512)
+        return decodeSampledFile(path, 1080)
     }
 
     fun saveBackgroundImage(context: Context, inputStream: InputStream): String {
