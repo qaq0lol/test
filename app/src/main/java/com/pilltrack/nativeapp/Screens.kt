@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -671,6 +672,8 @@ data class DrugCurveData(
 @Composable
 fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
     var touchX by remember { mutableStateOf<Float?>(null) }
+        var chartScale by remember { mutableStateOf(1f) }
+        var chartOffsetX by remember { mutableStateOf(0f) }
 
     // Animation states
     val drawProgress = remember { Animatable(0f) }
@@ -742,6 +745,12 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
             Canvas(
                     modifier = Modifier
                         .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = chartScale,
+                            scaleY = chartScale,
+                            translationX = chartOffsetX,
+                            transformOrigin = TransformOrigin(0f, 0.5f)
+                        )
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = { offset ->
@@ -754,11 +763,10 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                             )
                         }
                         .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDrag = { change, _ ->
-                                    touchX = change.position.x
-                                }
-                            )
+                            detectTransformGestures { centroid, pan, zoom, rotation ->
+                                chartScale = (chartScale * zoom).coerceIn(1f, 5f)
+                                chartOffsetX = (chartOffsetX + pan.x * chartScale).coerceIn(-size.width * (chartScale - 1f), 0f)
+                            }
                         }
                 ) {
                     val w = size.width
