@@ -21,6 +21,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.material3.Divider
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -58,6 +60,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -286,6 +289,7 @@ fun BackgroundGlow(
 fun GlassCard(
     modifier: Modifier = Modifier,
     shape: RoundedCornerShape = RoundedCornerShape(28.dp),
+    contentPadding: PaddingValues = PaddingValues(18.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
     val isDark = AppColors.isDark()
@@ -304,7 +308,7 @@ fun GlassCard(
         shadowElevation = if (isDark) 4.dp else 16.dp
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(contentPadding),
             content = content
         )
     }
@@ -2260,53 +2264,49 @@ fun ProfileHeaderCard(
     onEditProfileClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        AvatarView(
-            avatarBitmap = avatarBitmap,
-            size = 96.dp,
-            showCameraBadge = true,
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onAvatarClick()
+    GlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onEditProfileClick()
             }
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
+    ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onEditProfileClick()
-                }
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                userProfile.nickname,
-                style = MaterialTheme.typography.titleLarge,
-                color = AppColors.TextPrimary,
-                fontWeight = FontWeight.Bold
+            AvatarView(
+                avatarBitmap = avatarBitmap,
+                size = 80.dp,
+                showCameraBadge = true,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onAvatarClick()
+                }
             )
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(
-                Icons.Filled.Edit,
-                contentDescription = "编辑资料",
-                tint = AppColors.Primary,
-                modifier = Modifier.size(16.dp)
-            )
-        }
 
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            userProfile.signature,
-            color = AppColors.TextSecondary,
-            style = MaterialTheme.typography.bodyMedium
-        )
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    userProfile.nickname,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = AppColors.TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    userProfile.signature,
+                    color = AppColors.TextSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+
+        }
     }
 }
 
@@ -2662,17 +2662,141 @@ fun ProfileScreen(
                 )
             }
 
-            item(key = "theme_card") {
-                ThemeSettingsCard(userProfile = userProfile, onUpdateProfile = onUpdateProfile)
-            }
+            item(key = "settings_group") {
+                var showThemeDialog by remember { mutableStateOf(false) }
 
-            item(key = "wallpaper_card") {
-                WallpaperSettingsCard(
-                    customBgBitmap = customBgBitmap,
-                    onSelectBackground = onSelectBackground,
-                    onAdjustBackground = onAdjustBackground,
-                    onResetBackground = onResetBackground
-                )
+                if (showThemeDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showThemeDialog = false },
+                        containerColor = AppColors.Card,
+                        shape = RoundedCornerShape(24.dp),
+                        title = { Text("选择外观主题", color = AppColors.TextPrimary, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                val modes = listOf(
+                                    Triple("system", "跟随系统", Icons.Filled.SettingsBrightness),
+                                    Triple("light", "浅色模式", Icons.Filled.LightMode),
+                                    Triple("dark", "深色模式", Icons.Filled.DarkMode),
+                                    Triple("amoled", "AMOLED 纯黑", Icons.Filled.Nightlight)
+                                )
+                                modes.forEach { (mode, label, icon) ->
+                                    val isSelected = userProfile.themeMode == mode
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSelected) AppColors.Primary.copy(alpha=0.1f) else Color.Transparent)
+                                            .clickable {
+                                                if (!isSelected) {
+                                                    val updated = userProfile.copy(themeMode = mode)
+                                                    AppColors.themeMode = mode
+                                                    onUpdateProfile(updated)
+                                                }
+                                                showThemeDialog = false
+                                            }
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(icon, contentDescription = null, tint = if (isSelected) AppColors.Primary else AppColors.TextSecondary, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(label, color = if (isSelected) AppColors.Primary else AppColors.TextPrimary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        if (isSelected) Icon(Icons.Filled.Check, contentDescription = null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showThemeDialog = false }) {
+                                Text("关闭", color = AppColors.Primary)
+                            }
+                        }
+                    )
+                }
+
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Column {
+                        val haptic = LocalHapticFeedback.current
+
+                        // Theme Setting
+                        val currentModeLabel = when (userProfile.themeMode) {
+                            "dark" -> "深色模式"
+                            "amoled" -> "纯黑模式"
+                            "light" -> "浅色模式"
+                            else -> "跟随系统"
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    showThemeDialog = true
+                                }
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(36.dp).background(Color(0xFFE0E7FF), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                Text("🌓", fontSize = 18.sp)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("外观设置", color = AppColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(currentModeLabel, color = AppColors.TextSecondary, fontSize = 13.sp)
+
+                        }
+
+                        Divider(color = AppColors.Border.copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 16.dp))
+
+                        // Wallpaper Setting
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelectBackground()
+                                }
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(36.dp).background(Color(0xFFFEF08A), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                Text("🖼️", fontSize = 18.sp)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("自定义背景", color = AppColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(if (customBgBitmap != null) "已设置" else "默认", color = AppColors.TextSecondary, fontSize = 13.sp)
+
+                        }
+
+                        if (customBgBitmap != null) {
+                            Divider(color = AppColors.Border.copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 16.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onResetBackground()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.size(36.dp).background(Color(0xFFFEE2E2), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                    Text("🗑️", fontSize = 18.sp)
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("恢复默认背景", color = Color(0xFFEF4444), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Version info footer
