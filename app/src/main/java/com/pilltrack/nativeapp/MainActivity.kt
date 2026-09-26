@@ -274,7 +274,6 @@ fun PillTrackApp() {
                         "today" -> {
                             TodayScreen(
                                 logs = logs,
-                                userProfile = userProfile,
                                 avatarBitmap = avatarBitmap,
                                 onAvatarClick = { photoPickerLauncher.launch("image/*") },
                                 onDeleteLog = { logToDelete ->
@@ -301,11 +300,7 @@ fun PillTrackApp() {
                                 if (currentDetailDate == null) {
                                     HistoryScreen(
                                         logs = logs,
-                                        onDateClick = { date -> detailDate = date },
-                                        onAddLogClick = {
-                                            addSheetInitialTime = System.currentTimeMillis()
-                                            showAddSheet = true
-                                        }
+                                        onDateClick = { date -> detailDate = date }
                                     )
                                 } else {
                                     DetailScreen(
@@ -355,12 +350,6 @@ fun PillTrackApp() {
                                 customBgBitmap = customBgBitmap,
                                 onAvatarClick = { photoPickerLauncher.launch("image/*") },
                                 onSelectBackground = { bgPickerLauncher.launch("image/*") },
-                                onAdjustBackground = {
-                                    if (customBgBitmap != null) {
-                                        pendingBgBitmap = customBgBitmap
-                                        showBgAdjustSheet = true
-                                    }
-                                },
                                 onResetBackground = {
                                     LocalStorage.deleteBackgroundImage(context)
                                     val updated = userProfile.copy(backgroundPath = null)

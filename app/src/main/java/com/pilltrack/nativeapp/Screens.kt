@@ -310,7 +310,7 @@ fun GlassCard(
                 )
             )
         ),
-        shadowElevation = if (isDark) 12.dp else 6.dp
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -393,7 +393,6 @@ fun AvatarView(
 @Composable
 fun TodayScreen(
     logs: List<PillLog>,
-    userProfile: UserProfile,
     avatarBitmap: Bitmap?,
     onAvatarClick: () -> Unit,
     onDeleteLog: (PillLog) -> Unit
@@ -722,24 +721,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
         val detailTextSize = with(density) { 11.sp.toPx() }
         detailPaint.textSize = detailTextSize
 
-        val tooltipBgPaint = remember {
-            Paint().apply {
-                color = android.graphics.Color.parseColor("#E60F172A")
-                style = Paint.Style.FILL
-                isAntiAlias = true
-            }
-        }
-        
-        val tooltipBorderPaint = remember {
-            Paint().apply {
-                color = android.graphics.Color.parseColor("#4D3B82F6")
-                style = Paint.Style.STROKE
-                strokeWidth = 2f
-                isAntiAlias = true
-            }
-        }
-
-        val sqPaint = remember { Paint().apply { style = Paint.Style.FILL; isAntiAlias = true } }
+val sqPaint = remember { Paint().apply { style = Paint.Style.FILL; isAntiAlias = true } }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Canvas(
@@ -763,7 +745,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                             )
                         }
                         .pointerInput(Unit) {
-                            detectTransformGestures { centroid, pan, zoom, rotation ->
+                            detectTransformGestures { _, pan, zoom, _ ->
                                 chartScale = (chartScale * zoom).coerceIn(1f, 5f)
                                 chartOffsetX = (chartOffsetX + pan.x * chartScale).coerceIn(-size.width * (chartScale - 1f), 0f)
                             }
@@ -861,7 +843,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                 val curvesList = mutableListOf<DrugCurveData>()
 
                 // Calculate curve for each distinct medication using user's customized color!
-                drugGroups.entries.forEachIndexed { groupIndex, (drugName, medLogs) ->
+                drugGroups.entries.forEachIndexed { _, (drugName, medLogs) ->
                     val colorHex = medLogs.first().color
                     val drugColor = try {
                         Color(android.graphics.Color.parseColor(colorHex))
@@ -917,9 +899,6 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                     var prevY = 0f
 
                     for (i in 0..pointsToDraw) {
-                        val tHours = (i.toFloat() / numPoints) * evalHours
-                        val absoluteTime = timelineStart + (tHours * 60 * 60 * 1000).toLong()
-
                         val c = concs[i]
                         val x = (i.toFloat() / numPoints) * w
                         val y = chartBottom - ((c / suggestedMax) * (chartBottom - 20.dp.toPx())).coerceIn(0f, chartBottom)
@@ -1461,8 +1440,7 @@ fun EditLogSheet(
 @Composable
 fun HistoryScreen(
     logs: List<PillLog>,
-    onDateClick: (String) -> Unit,
-    onAddLogClick: () -> Unit
+    onDateClick: (String) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
@@ -1537,28 +1515,19 @@ fun HistoryScreen(
                 }
             } else {
                 grouped.forEach { (dateStr, dayLogs) ->
-                    item {
+                    item(key = "history_${dateStr}", contentType = "HistoryDateGroup") {
                         val isDark = AppColors.isDark()
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .graphicsLayer { clip = true }
                                 .clip(RoundedCornerShape(20.dp))
                                 .clickable { onDateClick(dateStr) },
                             shape = RoundedCornerShape(20.dp),
                             color = if (isDark) Color(0xFF131D30) else Color.White.copy(alpha = 0.88f),
                             border = BorderStroke(
                                 1.dp,
-                                if (isDark) Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xFF334155).copy(alpha = 0.60f),
-                                        Color(0xFF1E293B).copy(alpha = 0.30f)
-                                    )
-                                ) else Brush.verticalGradient(
-                                    listOf(
-                                        Color.White,
-                                        Color.White.copy(alpha = 0.60f)
-                                    )
-                                )
+                                if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
                             ),
                             shadowElevation = if (isDark) 10.dp else 6.dp
                         ) {
@@ -2412,7 +2381,6 @@ fun ProfileScreen(
     customBgBitmap: Bitmap? = null,
     onAvatarClick: () -> Unit,
     onSelectBackground: () -> Unit,
-    onAdjustBackground: () -> Unit = {},
     onResetBackground: () -> Unit,
     onUpdateProfile: (UserProfile) -> Unit,
     onShowStatsDetail: () -> Unit
