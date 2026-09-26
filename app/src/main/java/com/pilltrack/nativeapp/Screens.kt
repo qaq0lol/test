@@ -301,8 +301,8 @@ fun GlassCard(
                 )
             ) else Brush.verticalGradient(
                 listOf(
-                    Color.White,
-                    Color.White.copy(alpha = 0.50f)
+                    Color(0xFFE2E8F0),
+                    Color(0xFFF1F5F9)
                 )
             )
         ),
@@ -2696,7 +2696,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "版本号: v1.28 · Build 30",
+                        "版本号: v1.29 · Build 31",
                         color = AppColors.TextTertiary,
                         fontSize = 11.sp
                     )
