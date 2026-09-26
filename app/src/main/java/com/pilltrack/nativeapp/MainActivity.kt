@@ -255,17 +255,17 @@ fun PillTrackApp() {
                         val toIndex = tabOrder[targetState] ?: 0
                         // Using a fluid spring animation for tab switches instead of basic tween
                         val slideSpec = spring<androidx.compose.ui.unit.IntOffset>(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessLow
+                            dampingRatio = 0.8f,
+                            stiffness = 300f
                         )
-                        val fadeSpec = tween<Float>(300, easing = LinearEasing)
+                        val fadeSpec = spring<Float>(dampingRatio = 0.8f, stiffness = 300f)
 
                         if (toIndex > fromIndex) {
-                            (slideInHorizontally(animationSpec = slideSpec) { it } + fadeIn(fadeSpec)) with
-                                (slideOutHorizontally(animationSpec = slideSpec) { -it / 2 } + fadeOut(fadeSpec))
+                            (slideInHorizontally(animationSpec = slideSpec) { it } + fadeIn(animationSpec = fadeSpec)) with
+                                (slideOutHorizontally(animationSpec = slideSpec) { -it / 3 } + fadeOut(animationSpec = fadeSpec))
                         } else {
-                            (slideInHorizontally(animationSpec = slideSpec) { -it } + fadeIn(fadeSpec)) with
-                                (slideOutHorizontally(animationSpec = slideSpec) { it / 2 } + fadeOut(fadeSpec))
+                            (slideInHorizontally(animationSpec = slideSpec) { -it } + fadeIn(animationSpec = fadeSpec)) with
+                                (slideOutHorizontally(animationSpec = slideSpec) { it / 3 } + fadeOut(animationSpec = fadeSpec))
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -428,14 +428,14 @@ fun PillTrackApp() {
                     }
                 }
 
-                // Bottom Navigation Bar with Spring Animation & Bright Frosted Glass
+                // Bottom Navigation Bar with Apple-style Frosted Glass
                 AnimatedVisibility(
                     visible = !isOverlayActive,
                     enter = slideInVertically(
                         initialOffsetY = { it },
-                        animationSpec = spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioLowBouncy)
-                    ) + fadeIn(tween(300)),
-                    exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(250)) + fadeOut(tween(250)),
+                        animationSpec = spring(stiffness = 300f, dampingRatio = 0.7f)
+                    ) + fadeIn(spring(stiffness = 300f)),
+                    exit = slideOutVertically(targetOffsetY = { it }, animationSpec = spring(stiffness = 400f, dampingRatio = 0.8f)) + fadeOut(spring(stiffness = 400f)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 24.dp)
@@ -443,26 +443,27 @@ fun PillTrackApp() {
                     val isDarkNav = AppColors.isDark()
                     Surface(
                         modifier = Modifier
-                            .fillMaxWidth(0.86f)
-                            .height(68.dp),
-                        shape = RoundedCornerShape(34.dp),
-                        color = if (isDarkNav) Color(0xFF1E293B).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.88f),
+                            .fillMaxWidth(0.88f)
+                            .height(72.dp),
+                        shape = RoundedCornerShape(36.dp),
+                        color = if (isDarkNav) Color(0xFF0F172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f),
                         contentColor = AppColors.TextPrimary,
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
                             if (isDarkNav) Brush.verticalGradient(
                                 listOf(
-                                    Color.White.copy(alpha = 0.20f),
+                                    Color.White.copy(alpha = 0.35f),
                                     Color.White.copy(alpha = 0.05f)
                                 )
-                            ) else Brush.verticalGradient(
+                            ) else Brush.linearGradient(
                                 listOf(
-                                    Color.White,
-                                    Color(0xFFE2E8F0)
+                                    Color.White.copy(alpha = 0.9f),
+                                    Color.White.copy(alpha = 0.2f),
+                                    Color.White.copy(alpha = 0.7f)
                                 )
                             )
                         ),
-                        shadowElevation = 16.dp
+                        shadowElevation = if (isDarkNav) 0.dp else 24.dp
                     ) {
                         Row(
                             modifier = Modifier
@@ -470,13 +471,15 @@ fun PillTrackApp() {
                                 .background(
                                     if (isDarkNav) Brush.verticalGradient(
                                         listOf(
-                                            Color(0xFF334155).copy(alpha = 0.40f),
-                                            Color(0xFF0F172A).copy(alpha = 0.70f)
+                                            Color.White.copy(alpha = 0.12f),
+                                            Color.Transparent,
+                                            Color.Black.copy(alpha = 0.5f)
                                         )
                                     ) else Brush.verticalGradient(
                                         listOf(
-                                            Color.White.copy(alpha = 0.60f),
-                                            AppColors.Background.copy(alpha = 0.80f)
+                                            Color.White.copy(alpha = 0.65f),
+                                            Color.White.copy(alpha = 0.25f),
+                                            Color.White.copy(alpha = 0.55f)
                                         )
                                     )
                                 ),
@@ -864,16 +867,17 @@ fun NavItem(
     onClick: () -> Unit
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 1.0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+        targetValue = if (isSelected) 1.15f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "NavItemScale"
     )
-    val contentColor = if (isSelected) Color(0xFF2563EB) else Color(0xFF64748B)
+    val contentColor = if (isSelected) Color(0xFF2563EB) else if (AppColors.isDark()) Color(0xFF94A3B8) else Color(0xFF64748B)
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(34.dp))
+            .clip(RoundedCornerShape(36.dp))
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -882,23 +886,25 @@ fun NavItem(
             modifier = Modifier
                 .scale(scale)
                 .background(
-                    if (isSelected) Color(0xFFEFF6FF) else Color.Transparent,
+                    if (isSelected) {
+                        if (AppColors.isDark()) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color(0xFFEFF6FF).copy(alpha = 0.8f)
+                    } else Color.Transparent,
                     RoundedCornerShape(20.dp)
                 )
-                .padding(horizontal = 14.dp, vertical = 6.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Icon(
                 icon,
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(24.dp)
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = label,
                 color = contentColor,
                 fontSize = 11.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1
             )
         }
