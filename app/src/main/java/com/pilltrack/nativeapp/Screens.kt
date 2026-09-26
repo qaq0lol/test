@@ -761,7 +761,7 @@ fun PharmacokineticsChart(logs: List<PillLog>, modifier: Modifier = Modifier) {
                         .pointerInput(Unit) {
                             detectTransformGestures { centroid, pan, zoom, rotation ->
                                 chartScale = (chartScale * zoom).coerceIn(1f, 5f)
-                                chartOffsetX = (chartOffsetX + pan.x).coerceIn(-size.width * (chartScale - 1f), 0f)
+                                chartOffsetX = (chartOffsetX + pan.x * chartScale).coerceIn(-size.width * (chartScale - 1f), 0f)
                             }
                         }
                 ) {
