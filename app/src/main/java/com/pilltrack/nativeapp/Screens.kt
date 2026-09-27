@@ -2233,6 +2233,7 @@ fun ProfileHeaderCard(
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
             .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onEditProfileClick()
