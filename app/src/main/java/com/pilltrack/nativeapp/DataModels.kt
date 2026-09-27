@@ -269,7 +269,7 @@ object LocalStorage {
                 bytes, 0, bytes.size,
                 BitmapFactory.Options().apply {
                     inSampleSize = sample
-                    inPreferredConfig = Bitmap.Config.RGB_565
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
                 }
             )
         } catch (e: Exception) {

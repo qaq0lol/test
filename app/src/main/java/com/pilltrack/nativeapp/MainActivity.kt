@@ -17,6 +17,7 @@ import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
@@ -51,9 +52,12 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : ComponentActivity() {
+    @OptIn(androidx.foundation.ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val profile = LocalStorage.loadProfile(this)
         AppColors.themeMode = profile.themeMode
         val isDark = when (profile.themeMode) {
@@ -87,7 +91,11 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             ) {
-                PillTrackApp()
+                CompositionLocalProvider(
+                    LocalOverscrollConfiguration provides null
+                ) {
+                    PillTrackApp()
+                }
             }
         }
     }
@@ -289,11 +297,11 @@ fun PillTrackApp() {
                                 targetState = detailDate,
                                 transitionSpec = {
                                     if (targetState != null) {
-                                        (slideInHorizontally(animationSpec = tween(320, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(250))) with
-                                            (slideOutHorizontally(animationSpec = tween(320, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(200)))
+                                        (slideInHorizontally(animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) { it } + fadeIn(spring(stiffness = 300f))) with
+                                            (slideOutHorizontally(animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) { -it / 3 } + fadeOut(spring(stiffness = 300f)))
                                     } else {
-                                        (slideInHorizontally(animationSpec = tween(320, easing = FastOutSlowInEasing)) { -it / 3 } + fadeIn(tween(250))) with
-                                            (slideOutHorizontally(animationSpec = tween(320, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(200)))
+                                        (slideInHorizontally(animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) { -it / 3 } + fadeIn(spring(stiffness = 300f))) with
+                                            (slideOutHorizontally(animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) { it } + fadeOut(spring(stiffness = 300f)))
                                     }
                                 },
                                 modifier = Modifier.fillMaxSize()
@@ -376,12 +384,12 @@ fun PillTrackApp() {
                     visible = isFabVisible,
                     enter = slideInVertically(
                         initialOffsetY = { it },
-                        animationSpec = tween(400, easing = FastOutSlowInEasing)
-                    ) + fadeIn(tween(300, easing = LinearEasing)),
+                        animationSpec = spring(stiffness = 300f, dampingRatio = 0.7f)
+                    ) + fadeIn(spring(stiffness = 300f)),
                     exit = slideOutVertically(
                         targetOffsetY = { it },
-                        animationSpec = tween(300, easing = FastOutLinearInEasing)
-                    ) + fadeOut(tween(250, easing = LinearEasing)),
+                        animationSpec = spring(stiffness = 400f, dampingRatio = 0.8f)
+                    ) + fadeOut(spring(stiffness = 400f)),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(bottom = 100.dp, end = 24.dp)
@@ -485,8 +493,8 @@ fun PillTrackApp() {
             // Stats Detail Modal Sheet (Root Level)
             AnimatedVisibility(
                 visible = showStatsDetail,
-                enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300, easing = LinearEasing)),
-                exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300, easing = LinearEasing)),
+                enter = slideInVertically(initialOffsetY = { it }, animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) + fadeIn(spring(stiffness = 300f)),
+                exit = slideOutVertically(targetOffsetY = { it }, animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) + fadeOut(spring(stiffness = 300f)),
                 modifier = Modifier.fillMaxSize()
             ) {
                 StatsDetailSheet(
@@ -542,8 +550,8 @@ fun PillTrackApp() {
             // Add Log Modal Sheet (Root Level)
             AnimatedVisibility(
                 visible = showAddSheet,
-                enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300, easing = LinearEasing)),
-                exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300, easing = LinearEasing)),
+                enter = slideInVertically(initialOffsetY = { it }, animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) + fadeIn(spring(stiffness = 300f)),
+                exit = slideOutVertically(targetOffsetY = { it }, animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)) + fadeOut(spring(stiffness = 300f)),
                 modifier = Modifier.fillMaxSize()
             ) {
                 Box(
