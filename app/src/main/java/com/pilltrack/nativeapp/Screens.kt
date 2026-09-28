@@ -2233,6 +2233,7 @@ fun ProfileHeaderCard(
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
             .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onEditProfileClick()
@@ -3525,7 +3526,6 @@ fun WallpaperAdjustScreen(
                             Text("2026-09-24", style = MaterialTheme.typography.titleMedium, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold)
                             Text("共 1 次用药", color = AppColors.TextSecondary, fontSize = 13.sp)
                         }
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color(0xFF94A3B8))
                     }
                 }
 
@@ -3546,7 +3546,6 @@ fun WallpaperAdjustScreen(
                             Text("2026-09-23", style = MaterialTheme.typography.titleMedium, color = AppColors.TextPrimary, fontWeight = FontWeight.Bold)
                             Text("共 2 次用药", color = AppColors.TextSecondary, fontSize = 13.sp)
                         }
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color(0xFF94A3B8))
                     }
                 }
             }
