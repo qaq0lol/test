@@ -51,9 +51,12 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : ComponentActivity() {
+    @androidx.compose.foundation.ExperimentalFoundationApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val profile = LocalStorage.loadProfile(this)
         AppColors.themeMode = profile.themeMode
         val isDark = when (profile.themeMode) {
@@ -70,8 +73,11 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             val isThemeDark = AppColors.isDark()
-            MaterialTheme(
-                colorScheme = if (isThemeDark) {
+            CompositionLocalProvider(
+                LocalOverscrollConfiguration provides null
+            ) {
+                MaterialTheme(
+                    colorScheme = if (isThemeDark) {
                     darkColorScheme(
                         primary = Color(0xFF3B82F6),
                         secondary = Color(0xFF38BDF8),
@@ -86,8 +92,9 @@ class MainActivity : ComponentActivity() {
                         surface = Color.White
                     )
                 }
-            ) {
-                PillTrackApp()
+                ) {
+                    PillTrackApp()
+                }
             }
         }
     }
